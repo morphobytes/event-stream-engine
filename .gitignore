@@ -77,10 +77,18 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.production
+.env.staging
 .venv
 ENV/
 env/
 venv/
+
+# Keep development environment templates (these contain placeholders, not secrets)
+!.env.dev
+!.env.db
+!.env.example
 
 # Spyder project settings
 .spyderproject
@@ -101,7 +109,6 @@ dmypy.json
 .pyre/
 
 # Project specific
-.env
 *.log
 logs/
 uploads/
