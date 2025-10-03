@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------
+  # 1. WEB SERVICE (Flask API, Webhooks) - Built from Dockerfile
+  # ----------------------------------------------------
+  web:
+    build:
+      context: .
+      target: runtime  # Use the lightweight production stage
+    container_name: messaging-web
+    command: gunicorn --bind 0.0.0.0:8000 app.main:app  # Production web server
+    volumes:
+      - .:/app  # Mount current directory for live code changes
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    depends_on:
+      - db
+      - redis
+    # Healthcheck is vital for E2E testing dependency management
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+  # ----------------------------------------------------
+  # 2. WORKER SERVICE (Celery Campaign Runner)
+  # ----------------------------------------------------
+  worker:
+    build:
+      context: .
+      target: runtime # Use the same lightweight image
+    container_name: campaign-runner-worker
+    # Command runs the Celery worker process for asynchronous tasks
+    command: celery -A app.main.celery_app worker --loglevel=INFO --pool=solo
+    env_file:
+      - .env.dev
+    volumes:
+      - .:/app
+    depends_on:
+      - redis # Must wait for the message broker
+      - db # Needs database access to read campaigns/users
+      
+  # ----------------------------------------------------
+  # 3. DATABASE SERVICE (Local PostgreSQL)
+  # ----------------------------------------------------
+  db:
+    image: postgres:15-alpine # Use a lightweight, specific version of Postgres
+    container_name: messaging-db
+    env_file:
+      - .env.db # Separate file for DB credentials (POSTGRES_USER, etc.)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+      
+  # ----------------------------------------------------
+  # 4. BROKER/CACHE SERVICE (Redis)
+  # ----------------------------------------------------
+  redis:
+    image: redis:6-alpine # Use a lightweight Redis image
+    container_name: messaging-redis
+    ports:
+      - "6379:6379"
+    
+volumes:
+  postgres_data: # Ensures data persists between container shutdowns
