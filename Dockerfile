@@ -29,8 +29,9 @@ FROM python:3.11-slim AS runtime
 RUN useradd --create-home appuser
 USER appuser
 
-# Copy installed Python packages from the builder stage
+# Copy installed Python packages and executables from the builder stage
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code and static assets
 COPY . /app
 WORKDIR /app
