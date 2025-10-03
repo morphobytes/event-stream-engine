@@ -13,6 +13,9 @@ Contains PostgreSQL-specific settings, connection pool configuration, and SQLAlc
 ### `.env.example` - Template for Production
 Template file for production environment variables. Copy to `.env` and update with real values.
 
+### `.env` - Production/Local Override
+Local environment file with actual credentials (ignored by git).
+
 ## Quick Setup
 
 1. **For Local Development (Docker Compose):**
@@ -27,6 +30,13 @@ Template file for production environment variables. Copy to `.env` and update wi
    # Copy template and update with real values
    cp .env.example .env
    # Edit .env with production values
+   ```
+
+3. **For Local Testing (Alternative):**
+   ```bash
+   # Copy template for local testing with real credentials
+   cp .env.example .env
+   # Edit .env with your actual Twilio sandbox credentials
    ```
 
 ## Key Configuration Values
