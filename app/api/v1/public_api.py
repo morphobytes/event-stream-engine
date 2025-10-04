@@ -2,15 +2,18 @@
 Public API v1 - REST endpoints for Event Stream Engine
 Implements CRUD operations for Users, Campaigns, Segments, and Triggers
 """
-from flask import Blueprint, request, jsonify, current_app
-from sqlalchemy import or_, and_
+from flask import Blueprint, request, jsonify
 from sqlalchemy.exc import IntegrityError
-from marshmallow import ValidationError
+from pydantic import ValidationError
 from app.main import db
 from app.core.data_model import User, Campaign, Template, Segment, ConsentState
 from app.api.v1.schemas import (
-    UserSchema, UserListSchema, CampaignSchema, CampaignListSchema,
-    SegmentSchema, TemplateSchema, CampaignTriggerSchema, ErrorSchema, ValidationErrorSchema
+    UserCreate, UserUpdate, UserResponse, UserListResponse,
+    CampaignCreate, CampaignUpdate, CampaignResponse, CampaignListResponse,
+    SegmentCreate, SegmentResponse, TemplateResponse,
+    CampaignTriggerRequest, CampaignTriggerResponse,
+    ErrorResponse, ValidationErrorResponse, HealthResponse,
+    ConsentStateEnum, CampaignStatusEnum
 )
 from datetime import datetime
 import math
@@ -18,26 +21,25 @@ import math
 # Create API Blueprint
 api_v1 = Blueprint('api_v1', __name__, url_prefix='/api/v1')
 
-# Initialize schemas
-user_schema = UserSchema()
-users_schema = UserSchema(many=True)
-user_list_schema = UserListSchema()
-campaign_schema = CampaignSchema()
-campaigns_schema = CampaignSchema(many=True)
-campaign_list_schema = CampaignListSchema()
-segment_schema = SegmentSchema()
-segments_schema = SegmentSchema(many=True)
-template_schema = TemplateSchema()
-campaign_trigger_schema = CampaignTriggerSchema()
+# Helper functions
+def sqlalchemy_to_dict(obj):
+    """Convert SQLAlchemy model to dict with enum conversion"""
+    result = {}
+    for column in obj.__table__.columns:
+        value = getattr(obj, column.name)
+        # Convert enum values to strings
+        if hasattr(value, 'value'):
+            result[column.name] = value.value
+        else:
+            result[column.name] = value
+    return result
 
-# Error handlers
 def handle_validation_error(error):
-    """Handle marshmallow validation errors"""
-    return jsonify({
-        'error': 'Validation Error',
-        'message': 'Invalid input data',
-        'field_errors': error.messages
-    }), 400
+    """Handle Pydantic validation errors"""
+    return jsonify(ValidationErrorResponse(
+        message='Invalid input data',
+        field_errors=error.errors() if hasattr(error, 'errors') else {'general': [str(error)]}
+    ).dict()), 400
 
 def handle_integrity_error(error):
     """Handle database integrity errors"""
@@ -76,7 +78,10 @@ def get_users():
                 consent_enum = ConsentState(consent_state.upper())
                 query = query.filter(User.consent_state == consent_enum)
             except ValueError:
-                return handle_validation_error(ValidationError({'consent_state': 'Invalid consent state'}))
+                return jsonify(ErrorResponse(
+                    error='Invalid Parameter',
+                    message='Invalid consent state'
+                ).dict()), 400
         
         # Filter by subscription topic
         topic = request.args.get('topic')
@@ -90,48 +95,58 @@ def get_users():
             error_out=False
         )
         
-        # Serialize results
-        result = {
-            'users': users_schema.dump(paginated.items),
-            'total': paginated.total,
-            'page': page,
-            'per_page': per_page,
-            'has_next': paginated.has_next,
-            'has_prev': paginated.has_prev,
-            'pages': paginated.pages
-        }
+        # Convert to Pydantic models with enum handling
+        user_responses = []
+        for user in paginated.items:
+            user_dict = sqlalchemy_to_dict(user)
+            user_responses.append(UserResponse.model_validate(user_dict))
         
-        return jsonify(result), 200
+        # Create response
+        result = UserListResponse(
+            users=user_responses,
+            total=paginated.total,
+            page=page,
+            per_page=per_page,
+            has_next=paginated.has_next,
+            has_prev=paginated.has_prev,
+            pages=paginated.pages
+        )
+        
+        return jsonify(result.dict()), 200
         
     except Exception as e:
-        return jsonify({'error': 'Internal Server Error', 'message': str(e)}), 500
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=str(e)
+        ).dict()), 500
 
 @api_v1.route('/users', methods=['POST'])
 def create_user():
     """Create a new user with E.164 validation"""
     try:
         # Validate and deserialize input
-        user_data = user_schema.load(request.json)
+        user_data = UserCreate(**request.json)
         
         # Check if user already exists
         existing_user = User.query.get(user_data.phone_e164)
         if existing_user:
-            return jsonify({
-                'error': 'Conflict',
-                'message': f'User with phone {user_data.phone_e164} already exists'
-            }), 409
+            return jsonify(ErrorResponse(
+                error='Conflict',
+                message=f'User with phone {user_data.phone_e164} already exists'
+            ).dict()), 409
         
         # Create new user
         new_user = User(
             phone_e164=user_data.phone_e164,
-            attributes=user_data.attributes or {},
-            consent_state=user_data.consent_state or ConsentState.OPT_IN
+            attributes=user_data.attributes,
+            consent_state=ConsentState(user_data.consent_state.value)
         )
         
         db.session.add(new_user)
         db.session.commit()
         
-        return jsonify(user_schema.dump(new_user)), 201
+        user_dict = sqlalchemy_to_dict(new_user)
+        return jsonify(UserResponse.model_validate(user_dict).model_dump()), 201
         
     except ValidationError as e:
         return handle_validation_error(e)
@@ -140,7 +155,10 @@ def create_user():
         return handle_integrity_error(e)
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Internal Server Error', 'message': str(e)}), 500
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=str(e)
+        ).dict()), 500
 
 @api_v1.route('/users/<phone_e164>', methods=['PUT'])
 def update_user(phone_e164):
@@ -152,26 +170,30 @@ def update_user(phone_e164):
             return handle_not_found('User', phone_e164)
         
         # Validate input (partial update allowed)
-        update_data = user_schema.load(request.json, partial=True)
+        update_data = UserUpdate(**request.json)
         
         # Update fields
-        if hasattr(update_data, 'attributes') and update_data.attributes is not None:
+        if update_data.attributes is not None:
             user.attributes = update_data.attributes
         
-        if hasattr(update_data, 'consent_state') and update_data.consent_state is not None:
-            user.consent_state = update_data.consent_state
+        if update_data.consent_state is not None:
+            user.consent_state = ConsentState(update_data.consent_state.value)
         
         user.updated_at = datetime.utcnow()
         
         db.session.commit()
         
-        return jsonify(user_schema.dump(user)), 200
+        user_dict = sqlalchemy_to_dict(user)
+        return jsonify(UserResponse.model_validate(user_dict).model_dump()), 200
         
     except ValidationError as e:
         return handle_validation_error(e)
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Internal Server Error', 'message': str(e)}), 500
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=str(e)
+        ).dict()), 500
 
 # SEGMENTS ENDPOINTS
 @api_v1.route('/segments', methods=['GET'])
@@ -179,24 +201,28 @@ def get_segments():
     """Get all segment definitions"""
     try:
         segments = Segment.query.all()
-        return jsonify({'segments': segments_schema.dump(segments)}), 200
+        segment_responses = [SegmentResponse.from_orm(segment) for segment in segments]
+        return jsonify({'segments': [s.dict() for s in segment_responses]}), 200
     except Exception as e:
-        return jsonify({'error': 'Internal Server Error', 'message': str(e)}), 500
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=str(e)
+        ).dict()), 500
 
 @api_v1.route('/segments', methods=['POST'])
 def create_segment():
     """Create a new segment definition"""
     try:
         # Validate and deserialize input
-        segment_data = segment_schema.load(request.json)
+        segment_data = SegmentCreate(**request.json)
         
         # Check for duplicate name
         existing = Segment.query.filter_by(name=segment_data.name).first()
         if existing:
-            return jsonify({
-                'error': 'Conflict',
-                'message': f'Segment with name {segment_data.name} already exists'
-            }), 409
+            return jsonify(ErrorResponse(
+                error='Conflict',
+                message=f'Segment with name {segment_data.name} already exists'
+            ).dict()), 409
         
         # Create new segment
         new_segment = Segment(
@@ -207,7 +233,7 @@ def create_segment():
         db.session.add(new_segment)
         db.session.commit()
         
-        return jsonify(segment_schema.dump(new_segment)), 201
+        return jsonify(SegmentResponse.from_orm(new_segment).dict()), 201
         
     except ValidationError as e:
         return handle_validation_error(e)
@@ -216,7 +242,10 @@ def create_segment():
         return handle_integrity_error(e)
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Internal Server Error', 'message': str(e)}), 500
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=str(e)
+        ).dict()), 500
 
 # CAMPAIGNS ENDPOINTS
 @api_v1.route('/campaigns', methods=['GET'])
@@ -232,20 +261,33 @@ def get_campaigns():
         
         campaigns = query.all()
         
-        return jsonify({
-            'campaigns': campaigns_schema.dump(campaigns),
-            'total': len(campaigns)
-        }), 200
+        # Convert to Pydantic models with template data
+        campaign_responses = []
+        for campaign in campaigns:
+            template_response = TemplateResponse.from_orm(campaign.template) if campaign.template else None
+            campaign_dict = CampaignResponse.from_orm(campaign).dict()
+            campaign_dict['template'] = template_response.dict() if template_response else None
+            campaign_responses.append(campaign_dict)
+        
+        result = CampaignListResponse(
+            campaigns=campaign_responses,
+            total=len(campaigns)
+        )
+        
+        return jsonify(result.dict()), 200
         
     except Exception as e:
-        return jsonify({'error': 'Internal Server Error', 'message': str(e)}), 500
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=str(e)
+        ).dict()), 500
 
 @api_v1.route('/campaigns', methods=['POST'])
 def create_campaign():
     """Create a new campaign"""
     try:
         # Validate and deserialize input
-        campaign_data = campaign_schema.load(request.json)
+        campaign_data = CampaignCreate(**request.json)
         
         # Verify template exists
         template = Template.query.get(campaign_data.template_id)
@@ -256,17 +298,23 @@ def create_campaign():
         new_campaign = Campaign(
             topic=campaign_data.topic,
             template_id=campaign_data.template_id,
-            status=campaign_data.status or 'DRAFT',
-            rate_limit_per_second=campaign_data.rate_limit_per_second or 10,
+            status=campaign_data.status.value,
+            rate_limit_per_second=campaign_data.rate_limit_per_second,
             quiet_hours_start=campaign_data.quiet_hours_start,
             quiet_hours_end=campaign_data.quiet_hours_end,
-            schedule_time=getattr(campaign_data, 'schedule_time', None)
+            schedule_time=campaign_data.schedule_time
         )
         
         db.session.add(new_campaign)
         db.session.commit()
         
-        return jsonify(campaign_schema.dump(new_campaign)), 201
+        # Load with template relationship
+        db.session.refresh(new_campaign)
+        response_dict = CampaignResponse.from_orm(new_campaign).dict()
+        if new_campaign.template:
+            response_dict['template'] = TemplateResponse.from_orm(new_campaign.template).dict()
+        
+        return jsonify(response_dict), 201
         
     except ValidationError as e:
         return handle_validation_error(e)
@@ -275,7 +323,10 @@ def create_campaign():
         return handle_integrity_error(e)
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Internal Server Error', 'message': str(e)}), 500
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=str(e)
+        ).dict()), 500
 
 @api_v1.route('/campaigns/<int:campaign_id>', methods=['PUT'])
 def update_campaign(campaign_id):
@@ -287,26 +338,40 @@ def update_campaign(campaign_id):
             return handle_not_found('Campaign', campaign_id)
         
         # Validate input (partial update allowed)
-        update_data = campaign_schema.load(request.json, partial=True)
+        update_data = CampaignUpdate(**request.json)
         
         # Update fields
-        for field in ['status', 'rate_limit_per_second', 'quiet_hours_start', 'quiet_hours_end', 'schedule_time']:
-            if hasattr(update_data, field):
-                value = getattr(update_data, field)
-                if value is not None:
-                    setattr(campaign, field, value)
+        if update_data.status is not None:
+            campaign.status = update_data.status.value
+        if update_data.rate_limit_per_second is not None:
+            campaign.rate_limit_per_second = update_data.rate_limit_per_second
+        if update_data.quiet_hours_start is not None:
+            campaign.quiet_hours_start = update_data.quiet_hours_start
+        if update_data.quiet_hours_end is not None:
+            campaign.quiet_hours_end = update_data.quiet_hours_end
+        if update_data.schedule_time is not None:
+            campaign.schedule_time = update_data.schedule_time
         
         campaign.updated_at = datetime.utcnow()
         
         db.session.commit()
         
-        return jsonify(campaign_schema.dump(campaign)), 200
+        # Load with template relationship
+        db.session.refresh(campaign)
+        response_dict = CampaignResponse.from_orm(campaign).dict()
+        if campaign.template:
+            response_dict['template'] = TemplateResponse.from_orm(campaign.template).dict()
+        
+        return jsonify(response_dict), 200
         
     except ValidationError as e:
         return handle_validation_error(e)
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Internal Server Error', 'message': str(e)}), 500
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=str(e)
+        ).dict()), 500
 
 # CAMPAIGN TRIGGER ENDPOINT
 @api_v1.route('/campaigns/<int:campaign_id>/trigger', methods=['POST'])
@@ -319,53 +384,60 @@ def trigger_campaign(campaign_id):
             return handle_not_found('Campaign', campaign_id)
         
         # Validate trigger parameters
-        trigger_data = campaign_trigger_schema.load(request.json or {})
+        trigger_data = CampaignTriggerRequest(**(request.json or {}))
         
         # Basic validation
         if campaign.status not in ['READY', 'DRAFT']:
-            return jsonify({
-                'error': 'Invalid State',
-                'message': f'Campaign must be in READY or DRAFT state to trigger (current: {campaign.status})'
-            }), 400
+            return jsonify(ErrorResponse(
+                error='Invalid State',
+                message=f'Campaign must be in READY or DRAFT state to trigger (current: {campaign.status})'
+            ).dict()), 400
         
         # Verify template exists and is valid
         if not campaign.template:
-            return jsonify({
-                'error': 'Invalid Configuration',
-                'message': 'Campaign template not found'
-            }), 400
+            return jsonify(ErrorResponse(
+                error='Invalid Configuration',
+                message='Campaign template not found'
+            ).dict()), 400
         
         # Update campaign status
-        campaign.status = 'RUNNING' if not trigger_data.get('dry_run') else campaign.status
+        new_status = campaign.status if trigger_data.dry_run else 'RUNNING'
+        campaign.status = new_status
         campaign.updated_at = datetime.utcnow()
         
         db.session.commit()
         
         # TODO: Queue Celery task for campaign execution
         # from app.tasks.campaign_runner import execute_campaign
-        # execute_campaign.delay(campaign_id, trigger_data)
+        # execute_campaign.delay(campaign_id, trigger_data.dict())
         
-        return jsonify({
-            'message': 'Campaign trigger initiated',
-            'campaign_id': campaign_id,
-            'status': campaign.status,
-            'dry_run': trigger_data.get('dry_run', False),
-            'immediate': trigger_data.get('immediate', False),
-            'segment_id': trigger_data.get('segment_id')
-        }), 200
+        response = CampaignTriggerResponse(
+            message='Campaign trigger initiated',
+            campaign_id=campaign_id,
+            status=CampaignStatusEnum(campaign.status),
+            dry_run=trigger_data.dry_run,
+            immediate=trigger_data.immediate,
+            segment_id=trigger_data.segment_id
+        )
+        
+        return jsonify(response.dict()), 200
         
     except ValidationError as e:
         return handle_validation_error(e)
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Internal Server Error', 'message': str(e)}), 500
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=str(e)
+        ).dict()), 500
 
 # HEALTH CHECK
 @api_v1.route('/health', methods=['GET'])
 def api_health():
     """API health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'version': 'v1',
-        'timestamp': datetime.utcnow().isoformat()
-    }), 200
+    health_response = HealthResponse(
+        status='healthy',
+        version='v1',
+        timestamp=datetime.utcnow().isoformat()
+    )
+    return jsonify(health_response.dict()), 200

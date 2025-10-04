@@ -1,174 +1,182 @@
 """
-Marshmallow schemas for API serialization and validation
-Ensures data integrity between API and SQLAlchemy models
+Pydantic schemas for API serialization and validation
+Modern Python type hints with automatic validation and superior performance
 """
-from marshmallow import Schema, fields, validate, validates, ValidationError, post_load
-from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from app.core.data_model import User, Campaign, Template, Segment, ConsentState, MessageStatus
+from pydantic import BaseModel, Field, validator, ConfigDict
+from typing import Optional, List, Dict, Any, Union
+from datetime import datetime
+from enum import Enum
 import re
 
-class UserSchema(SQLAlchemyAutoSchema):
-    """User serialization schema with E.164 validation"""
-    
-    class Meta:
-        model = User
-        load_instance = True
-        include_fk = True
-    
-    phone_e164 = fields.String(
-        required=True,
-        validate=validate.Length(max=16),
-        metadata={'description': 'E.164 formatted phone number'}
-    )
-    
-    attributes = fields.Dict(
-        missing=dict,
-        metadata={'description': 'Custom user attributes as JSON'}
-    )
-    
-    consent_state = fields.Enum(
-        ConsentState,
-        by_value=True,
-        missing=ConsentState.OPT_IN,
-        metadata={'description': 'User consent state'}
-    )
-    
-    @validates('phone_e164')
-    def validate_phone_e164(self, value):
-        """Validate E.164 format"""
-        if not re.match(r'^\+[1-9]\d{1,14}$', value):
-            raise ValidationError('Phone must be in valid E.164 format (+1234567890)')
+# Enums for validation
+class ConsentStateEnum(str, Enum):
+    OPT_IN = "OPT_IN"
+    OPT_OUT = "OPT_OUT"
+    STOP = "STOP"
 
-class UserListSchema(Schema):
-    """Schema for paginated user lists"""
-    users = fields.List(fields.Nested(UserSchema))
-    total = fields.Integer()
-    page = fields.Integer()
-    per_page = fields.Integer()
-    has_next = fields.Boolean()
-    has_prev = fields.Boolean()
+class MessageStatusEnum(str, Enum):
+    QUEUED = "QUEUED"
+    SENDING = "SENDING"
+    SENT = "SENT"
+    DELIVERED = "DELIVERED"
+    READ = "READ"
+    FAILED = "FAILED"
+    UNDELIVERED = "UNDELIVERED"
 
-class SegmentSchema(SQLAlchemyAutoSchema):
-    """Segment definition schema"""
+class CampaignStatusEnum(str, Enum):
+    DRAFT = "DRAFT"
+    READY = "READY"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    PAUSED = "PAUSED"
+
+class ChannelTypeEnum(str, Enum):
+    WHATSAPP = "whatsapp"
+    SMS = "sms"
+    MESSENGER = "messenger"
+    VOICE = "voice"
+
+# Pydantic v2 configuration
+base_config = ConfigDict(
+    from_attributes=True,
+    str_strip_whitespace=True,
+    use_enum_values=True
+)
+
+# User schemas
+class UserBase(BaseModel):
+    phone_e164: str = Field(..., max_length=16, description="E.164 formatted phone number")
+    attributes: Dict[str, Any] = Field(default_factory=dict, description="Custom user attributes")
+    consent_state: ConsentStateEnum = Field(default=ConsentStateEnum.OPT_IN, description="User consent state")
     
-    class Meta:
-        model = Segment
-        load_instance = True
+    @validator('phone_e164')
+    def validate_phone_e164(cls, v):
+        if not re.match(r'^\+[1-9]\d{1,14}$', v):
+            raise ValueError('Phone must be in valid E.164 format (+1234567890)')
+        return v
+
+class UserCreate(UserBase):
+    pass
+
+class UserUpdate(BaseModel):
+    attributes: Optional[Dict[str, Any]] = None
+    consent_state: Optional[ConsentStateEnum] = None
+
+class UserResponse(UserBase):
+    created_at: datetime
+    updated_at: datetime
     
-    name = fields.String(
-        required=True,
-        validate=validate.Length(min=1, max=100),
-        metadata={'description': 'Segment name'}
-    )
+    model_config = base_config
+
+class UserListResponse(BaseModel):
+    users: List[UserResponse]
+    total: int
+    page: int
+    per_page: int
+    has_next: bool
+    has_prev: bool
+    pages: int
+
+# Template schemas
+class TemplateBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, description="Template name")
+    content: str = Field(..., min_length=1, description="Message content with {placeholders}")
+    channel: str = Field(default="whatsapp", description="Channel type")
+    locale: str = Field(default="en_US", description="Language/locale")
+
+class TemplateCreate(TemplateBase):
+    pass
+
+class TemplateResponse(TemplateBase):
+    id: int
+    created_at: datetime
     
-    definition_json = fields.Dict(
-        required=True,
-        metadata={'description': 'JSON filter definition for user segmentation'}
-    )
+    model_config = base_config
+
+# Segment schemas
+class SegmentBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, description="Segment name")
+    definition_json: Dict[str, Any] = Field(..., description="JSON filter definition")
     
-    @validates('definition_json')
-    def validate_definition_json(self, value):
-        """Basic validation for segment definition structure"""
-        if not isinstance(value, dict):
-            raise ValidationError('Segment definition must be a JSON object')
+    @validator('definition_json')
+    def validate_definition_json(cls, v):
+        if not isinstance(v, dict):
+            raise ValueError('Segment definition must be a JSON object')
         
-        # Basic structure validation
         allowed_keys = {'attribute', 'operator', 'value', 'conditions', 'logic'}
-        if not any(key in value for key in allowed_keys):
-            raise ValidationError('Segment definition must contain valid filter criteria')
+        if not any(key in v for key in allowed_keys):
+            raise ValueError('Segment definition must contain valid filter criteria')
+        return v
 
-class TemplateSchema(SQLAlchemyAutoSchema):
-    """Template schema for campaign content"""
-    
-    class Meta:
-        model = Template
-        load_instance = True
-    
-    name = fields.String(required=True, validate=validate.Length(min=1, max=100))
-    content = fields.String(required=True, validate=validate.Length(min=1))
-    channel = fields.String(missing='whatsapp')
-    locale = fields.String(missing='en_US')
+class SegmentCreate(SegmentBase):
+    pass
 
-class CampaignSchema(SQLAlchemyAutoSchema):
-    """Campaign schema with nested relationships"""
+class SegmentResponse(SegmentBase):
+    id: int
+    created_at: datetime
     
-    class Meta:
-        model = Campaign
-        load_instance = True
-        include_fk = True
-    
-    topic = fields.String(
-        required=True,
-        validate=validate.Length(min=1, max=100),
-        metadata={'description': 'Campaign topic'}
-    )
-    
-    template_id = fields.Integer(
-        required=True,
-        metadata={'description': 'ID of the template to use'}
-    )
-    
-    status = fields.String(
-        missing='DRAFT',
-        validate=validate.OneOf(['DRAFT', 'READY', 'RUNNING', 'COMPLETED', 'PAUSED']),
-        metadata={'description': 'Campaign status'}
-    )
-    
-    rate_limit_per_second = fields.Integer(
-        missing=10,
-        validate=validate.Range(min=1, max=1000),
-        metadata={'description': 'Message rate limit per second'}
-    )
-    
-    quiet_hours_start = fields.String(
-        validate=validate.Regexp(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$'),
-        allow_none=True,
-        metadata={'description': 'Quiet hours start time (HH:MM format)'}
-    )
-    
-    quiet_hours_end = fields.String(
-        validate=validate.Regexp(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$'),
-        allow_none=True,
-        metadata={'description': 'Quiet hours end time (HH:MM format)'}
-    )
-    
-    # Nested template data for read operations
-    template = fields.Nested(TemplateSchema, dump_only=True)
+    model_config = base_config
 
-class CampaignListSchema(Schema):
-    """Schema for paginated campaign lists"""
-    campaigns = fields.List(fields.Nested(CampaignSchema))
-    total = fields.Integer()
-    page = fields.Integer()
-    per_page = fields.Integer()
+# Campaign schemas
+class CampaignBase(BaseModel):
+    topic: str = Field(..., min_length=1, max_length=100, description="Campaign topic")
+    template_id: int = Field(..., description="ID of the template to use")
+    status: CampaignStatusEnum = Field(default=CampaignStatusEnum.DRAFT, description="Campaign status")
+    rate_limit_per_second: int = Field(default=10, ge=1, le=1000, description="Message rate limit per second")
+    quiet_hours_start: Optional[str] = Field(None, pattern=r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$', description="Quiet hours start (HH:MM)")
+    quiet_hours_end: Optional[str] = Field(None, pattern=r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$', description="Quiet hours end (HH:MM)")
+    schedule_time: Optional[datetime] = Field(None, description="Scheduled launch time")
 
-class CampaignTriggerSchema(Schema):
-    """Schema for campaign trigger requests"""
-    segment_id = fields.Integer(
-        allow_none=True,
-        metadata={'description': 'Optional segment ID to filter recipients'}
-    )
+class CampaignCreate(CampaignBase):
+    pass
+
+class CampaignUpdate(BaseModel):
+    status: Optional[CampaignStatusEnum] = None
+    rate_limit_per_second: Optional[int] = Field(None, ge=1, le=1000)
+    quiet_hours_start: Optional[str] = Field(None, pattern=r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$')
+    quiet_hours_end: Optional[str] = Field(None, pattern=r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$')
+    schedule_time: Optional[datetime] = None
+
+class CampaignResponse(CampaignBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    template: Optional[TemplateResponse] = None
     
-    immediate = fields.Boolean(
-        missing=False,
-        metadata={'description': 'Whether to trigger immediately or respect schedule'}
-    )
-    
-    dry_run = fields.Boolean(
-        missing=False,
-        metadata={'description': 'Whether to simulate without sending messages'}
-    )
+    model_config = base_config
+
+class CampaignListResponse(BaseModel):
+    campaigns: List[CampaignResponse]
+    total: int
+
+# Campaign trigger schema
+class CampaignTriggerRequest(BaseModel):
+    segment_id: Optional[int] = Field(None, description="Optional segment ID to filter recipients")
+    immediate: bool = Field(default=False, description="Whether to trigger immediately")
+    dry_run: bool = Field(default=False, description="Whether to simulate without sending")
+
+class CampaignTriggerResponse(BaseModel):
+    message: str
+    campaign_id: int
+    status: CampaignStatusEnum
+    dry_run: bool
+    immediate: bool
+    segment_id: Optional[int] = None
 
 # Error response schemas
-class ErrorSchema(Schema):
-    """Standard error response schema"""
-    error = fields.String(required=True)
-    message = fields.String(required=True)
-    code = fields.Integer()
-    details = fields.Dict()
+class ErrorResponse(BaseModel):
+    error: str
+    message: str
+    code: Optional[int] = None
+    details: Optional[Dict[str, Any]] = None
 
-class ValidationErrorSchema(Schema):
-    """Validation error response schema"""
-    error = fields.String(default='Validation Error')
-    message = fields.String(required=True)
-    field_errors = fields.Dict()
+class ValidationErrorResponse(BaseModel):
+    error: str = "Validation Error"
+    message: str
+    field_errors: Dict[str, List[str]]
+
+# Health check schema
+class HealthResponse(BaseModel):
+    status: str
+    version: str
+    timestamp: str
