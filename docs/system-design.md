@@ -67,13 +67,23 @@ The Event Stream Engine is a production-grade, event-driven messaging platform d
 ### Key Entities & Relationships:
 
 ```sql
-Users (1) ──────── (N) Subscriptions (N) ──────── (1) Topics
-  │                                                    │
-  │                                                    │
-  └── (1) ──────── (N) Messages (N) ──────── (1) ─────┘
-                      │
-                      │
-              (1) ──────── (1) Campaigns
+Users (E.164 PK) ──┐
+    │              │
+    ├─ Subscriptions (composite PK: user + topic)
+    │              │
+    ├─ Messages ───┼─ Campaigns
+    │              │     ├─ Templates  
+    │              │     └─ Segments
+    │              │
+    ├─ InboundEvents (audit trail)
+    └─ DeliveryReceipts (status callbacks)
+```
+
+### State Machine Implementation:
+```
+Message Lifecycle: QUEUED → SENDING → SENT → DELIVERED/FAILED
+User Consent: OPT_IN → OPT_OUT → STOP (irreversible)
+Campaign Status: DRAFT → READY → RUNNING → COMPLETED
 ```
 
 ### Primary Key Strategy: **E.164 Phone Numbers**
