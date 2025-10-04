@@ -28,6 +28,30 @@ def create_app():
             'status': 'ready'
         }, 200
     
+    # Temporary webhook endpoints for testing connectivity
+    @app.route('/webhooks/inbound', methods=['POST'])
+    def test_inbound_webhook():
+        """Temporary webhook to test Twilio connectivity"""
+        from flask import request
+        print("🎉 INBOUND WEBHOOK RECEIVED!")
+        print("Form data:", dict(request.form))
+        print("Headers:", dict(request.headers))
+        
+        # Return a simple TwiML response
+        return '''<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message>✅ Webhook test successful! Your message was received by Event Stream Engine.</Message>
+</Response>''', 200, {'Content-Type': 'text/xml'}
+    
+    @app.route('/webhooks/status', methods=['POST'])
+    def test_status_webhook():
+        """Temporary webhook to test Twilio status callbacks"""
+        from flask import request
+        print("📊 STATUS CALLBACK RECEIVED!")
+        print("Form data:", dict(request.form))
+        
+        return {'status': 'received'}, 200
+    
     return app
 
 
