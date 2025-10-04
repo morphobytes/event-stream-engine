@@ -1,0 +1,6 @@
+phone_e164,name,city,age,consent_state
++94771234571,Alice Johnson,Colombo,25,OPT_IN
++94771234572,Bob Smith,Kandy,30,OPT_IN
+whatsapp:+94771234573,Carol Brown,Galle,28,OPT_OUT
++94771234574,David Wilson,Jaffna,35,OPT_IN
+sms:+94771234575,Eve Davis,Negombo,22,OPT_IN

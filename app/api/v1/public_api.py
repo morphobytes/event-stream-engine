@@ -5,6 +5,9 @@ Implements CRUD operations for Users, Campaigns, Segments, and Triggers
 from flask import Blueprint, request, jsonify
 from sqlalchemy.exc import IntegrityError
 from pydantic import ValidationError
+import os
+import uuid
+from werkzeug.utils import secure_filename
 from app.main import db
 from app.core.data_model import User, Campaign, Template, Segment, ConsentState
 from app.api.v1.schemas import (
@@ -441,3 +444,144 @@ def api_health():
         timestamp=datetime.utcnow().isoformat()
     )
     return jsonify(health_response.dict()), 200
+
+# INGESTION ENDPOINTS
+@api_v1.route('/ingest/users/bulk', methods=['POST'])
+def bulk_ingest_users_endpoint():
+    """
+    Bulk user ingestion from CSV/JSON file upload
+    Accepts multipart file upload and queues processing task
+    """
+    try:
+        # Validate file upload
+        if 'file' not in request.files:
+            return jsonify(ErrorResponse(
+                error='Bad Request',
+                message='No file provided in request'
+            ).dict()), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify(ErrorResponse(
+                error='Bad Request', 
+                message='No file selected'
+            ).dict()), 400
+        
+        # Validate file type
+        allowed_extensions = {'csv', 'json', 'jsonl'}
+        file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        
+        if file_extension not in allowed_extensions:
+            return jsonify(ErrorResponse(
+                error='Bad Request',
+                message=f'Unsupported file type. Allowed: {", ".join(allowed_extensions)}'
+            ).dict()), 400
+        
+        # Use app directory for uploads (shared between containers)
+        upload_dir = '/app/uploads'
+        os.makedirs(upload_dir, mode=0o755, exist_ok=True)
+        
+        # Save file with unique name
+        unique_filename = f"{uuid.uuid4()}_{secure_filename(file.filename)}"
+        file_path = os.path.join(upload_dir, unique_filename)
+        file.save(file_path)
+        
+        # Queue Celery task for processing
+        from app.runner.tasks import bulk_ingest_users
+        task = bulk_ingest_users.delay(file_path, file_extension)
+        
+        return jsonify({
+            'message': 'File uploaded successfully, processing started',
+            'task_id': task.id,
+            'file_name': file.filename,
+            'estimated_processing_time': '1-5 minutes depending on file size'
+        }), 202
+        
+    except Exception as e:
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=f'Failed to process upload: {str(e)}'
+        ).dict()), 500
+
+@api_v1.route('/ingest/triggers', methods=['POST'])
+def process_trigger_events_endpoint():
+    """
+    Process real-time trigger events for campaign execution
+    Accepts JSON/JSONL payload with trigger event data
+    """
+    try:
+        # Validate content type
+        if not request.is_json:
+            return jsonify(ErrorResponse(
+                error='Bad Request',
+                message='Content-Type must be application/json'
+            ).dict()), 400
+        
+        payload = request.get_json()
+        if not payload:
+            return jsonify(ErrorResponse(
+                error='Bad Request',
+                message='Empty JSON payload'
+            ).dict()), 400
+        
+        # Handle both single event and array of events
+        events = payload if isinstance(payload, list) else [payload]
+        task_ids = []
+        
+        # Queue processing task for each event
+        from app.runner.tasks import process_trigger_event
+        
+        for event in events:
+            # Add event ID if not present
+            if 'event_id' not in event:
+                event['event_id'] = str(uuid.uuid4())
+            
+            task = process_trigger_event.delay(event)
+            task_ids.append({
+                'event_id': event['event_id'],
+                'task_id': task.id
+            })
+        
+        return jsonify({
+            'message': f'Successfully queued {len(events)} trigger event(s) for processing',
+            'tasks': task_ids,
+            'processing_status': 'queued'
+        }), 202
+        
+    except Exception as e:
+        return jsonify(ErrorResponse(
+            error='Internal Server Error', 
+            message=f'Failed to process trigger events: {str(e)}'
+        ).dict()), 500
+
+@api_v1.route('/ingest/status/<task_id>', methods=['GET'])
+def get_ingestion_task_status(task_id: str):
+    """
+    Get status of an ingestion task
+    Returns task status and results if completed
+    """
+    try:
+        from app.main import celery_app
+        
+        # Get task result
+        task_result = celery_app.AsyncResult(task_id)
+        
+        response = {
+            'task_id': task_id,
+            'status': task_result.status,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        
+        if task_result.ready():
+            if task_result.successful():
+                response['result'] = task_result.result
+            else:
+                response['error'] = str(task_result.info)
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=f'Failed to get task status: {str(e)}'
+        ).dict()), 500

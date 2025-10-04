@@ -1,0 +1,18 @@
+[
+  {
+    "phone_e164": "+94771234576", 
+    "name": "Frank Miller",
+    "city": "Matara",
+    "age": 40,
+    "consent_state": "OPT_IN",
+    "occupation": "Teacher"
+  },
+  {
+    "phone_e164": "whatsapp:+94771234577",
+    "name": "Grace Wilson", 
+    "city": "Anuradhapura",
+    "age": 29,
+    "consent_state": "OPT_IN",
+    "occupation": "Doctor"
+  }
+]

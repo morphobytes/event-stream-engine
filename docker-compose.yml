@@ -10,6 +10,7 @@ services:
     command: gunicorn --bind 0.0.0.0:8000 app.main:app  # Production web server
     volumes:
       - .:/app  # Mount current directory for live code changes
+      - uploads:/tmp/uploads  # Shared volume for file uploads
     ports:
       - "8000:8000"
     env_file:
@@ -38,6 +39,7 @@ services:
       - .env.dev
     volumes:
       - .:/app
+      - uploads:/tmp/uploads  # Shared volume for file uploads
     depends_on:
       - redis # Must wait for the message broker
       - db # Needs database access to read campaigns/users
@@ -63,6 +65,8 @@ services:
     container_name: messaging-redis
     ports:
       - "6379:6379"
-    
+
+# Named volumes for shared data
 volumes:
+  uploads:
   postgres_data: # Ensures data persists between container shutdowns

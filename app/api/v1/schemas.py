@@ -180,3 +180,39 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     timestamp: str
+
+# Ingestion schemas
+class BulkIngestionResponse(BaseModel):
+    message: str
+    task_id: str
+    file_name: str
+    estimated_processing_time: str
+
+class TriggerEventRequest(BaseModel):
+    event_id: Optional[str] = None
+    type: str = Field(..., description="Event type (e.g., 'price_alert', 'welcome')")
+    campaign_id: Optional[int] = Field(None, description="Campaign to execute")
+    segment_id: Optional[int] = Field(None, description="Target segment filter")
+    user_phone: Optional[str] = Field(None, description="Specific user phone (E.164)")
+    event_data: Dict[str, Any] = Field(default_factory=dict, description="Event-specific data")
+
+class TriggerEventResponse(BaseModel):
+    message: str
+    tasks: List[Dict[str, str]]
+    processing_status: str
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    timestamp: str
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+class BulkIngestionResult(BaseModel):
+    total_processed: int
+    successful: int
+    failed: int
+    duplicates_merged: int
+    started_at: str
+    completed_at: Optional[str] = None
+    errors: List[Dict[str, Any]] = Field(default_factory=list)

@@ -184,6 +184,14 @@ app = create_app()
 # Create Celery instance
 celery_app = create_celery(app)
 
+# Import tasks to register them with Celery
+try:
+    from app.runner import tasks
+    from app.tasks import webhook_processor
+except ImportError:
+    # Tasks modules may not exist in all environments
+    pass
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
