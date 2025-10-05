@@ -1,0 +1,60 @@
+{
+  "test_user_data": {
+    "phone_number": "+15551234567",
+    "consent_status": "opted_in",
+    "attributes": {
+      "name": "Test User",
+      "location": "US"
+    }
+  },
+  "sample_users": [
+    {
+      "phone_number": "+15551234001",
+      "consent_status": "opted_in",
+      "attributes": {
+        "name": "Alice Johnson",
+        "location": "US",
+        "age": 25
+      }
+    },
+    {
+      "phone_number": "+15551234002", 
+      "consent_status": "opted_in",
+      "attributes": {
+        "name": "Bob Smith",
+        "location": "CA",
+        "age": 30
+      }
+    },
+    {
+      "phone_number": "+15551234003",
+      "consent_status": "opted_out", 
+      "attributes": {
+        "name": "Carol Brown",
+        "location": "UK",
+        "age": 28
+      }
+    }
+  ],
+  "test_template_data": {
+    "name": "Welcome Template",
+    "content": "Hello {name}, welcome to our service!",
+    "language": "en",
+    "is_active": true
+  },
+  "test_campaign_data": {
+    "topic": "Test Campaign",
+    "segment_query": {
+      "consent_status": "opted_in"
+    },
+    "status": "DRAFT",
+    "rate_limit_per_second": 5,
+    "quiet_hours_start": "22:00",
+    "quiet_hours_end": "08:00"
+  },
+  "test_message_data": {
+    "template_content": "Hello Test User, welcome to our service!",
+    "status": "sent",
+    "twilio_sid": "SM123456789"
+  }
+}

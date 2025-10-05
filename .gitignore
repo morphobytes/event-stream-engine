@@ -114,6 +114,18 @@ logs/
 uploads/
 downloads/
 
+# Data directory - protect sensitive data but allow sample/fixture files
+data/test/*.sqlite
+data/test/*.log
+data/test/local_*
+data/sensitive/
+# Allow organized test data and fixtures
+!data/sample/
+!data/fixtures/
+!data/test/.env.test
+!data/test/webhook_payloads.py
+!data/sql/
+
 # Docker
 .dockerignore
 
