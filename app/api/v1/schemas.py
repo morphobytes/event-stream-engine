@@ -162,6 +162,7 @@ class CampaignTriggerResponse(BaseModel):
     dry_run: bool
     immediate: bool
     segment_id: Optional[int] = None
+    task_id: Optional[str] = None
 
 # Error response schemas
 class ErrorResponse(BaseModel):

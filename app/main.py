@@ -159,12 +159,25 @@ def create_app():
 
 
 def create_celery(app=None):
-    """Create and configure Celery instance"""
+    """Create and configure Celery instance with Beat scheduler"""
     celery = Celery(
         'event-stream-engine',
         broker=os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0'),
         backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
     )
+    
+    # Configure Celery Beat for scheduled tasks
+    celery.conf.beat_schedule = {
+        'check-scheduled-campaigns': {
+            'task': 'app.runner.tasks.check_scheduled_campaigns',
+            'schedule': 30.0,  # Run every 30 seconds
+        },
+        'cleanup-old-rate-limits': {
+            'task': 'app.runner.tasks.cleanup_old_rate_limits', 
+            'schedule': 300.0,  # Run every 5 minutes
+        }
+    }
+    celery.conf.timezone = 'UTC'
     
     if app:
         # Initialize Celery with Flask app context
@@ -186,7 +199,7 @@ celery_app = create_celery(app)
 
 # Import tasks to register them with Celery
 try:
-    from app.runner import tasks
+    from app.runner import tasks  # This will load all tasks including campaign orchestration
     from app.tasks import webhook_processor
 except ImportError:
     # Tasks modules may not exist in all environments

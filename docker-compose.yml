@@ -45,6 +45,24 @@ services:
       - db # Needs database access to read campaigns/users
       
   # ----------------------------------------------------
+  # 2b. SCHEDULER SERVICE (Celery Beat)
+  # ----------------------------------------------------
+  scheduler:
+    build:
+      context: .
+      target: runtime
+    container_name: campaign-scheduler
+    # Command runs Celery Beat for scheduled campaign checks
+    command: celery -A app.main.celery_app beat --loglevel=INFO
+    env_file:
+      - .env.dev
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - db
+      
+  # ----------------------------------------------------
   # 3. DATABASE SERVICE (Local PostgreSQL)
   # ----------------------------------------------------
   db:

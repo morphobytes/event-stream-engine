@@ -403,21 +403,27 @@ def trigger_campaign(campaign_id):
                 message='Campaign template not found'
             ).dict()), 400
         
-        # Update campaign status
-        new_status = campaign.status if trigger_data.dry_run else 'RUNNING'
-        campaign.status = new_status
-        campaign.updated_at = datetime.utcnow()
+        # Queue campaign execution via orchestrator
+        if not trigger_data.dry_run:
+            from app.runner.tasks import trigger_campaign_execution
+            
+            # Trigger campaign execution
+            execution_result = trigger_campaign_execution.delay(campaign_id)
+            
+            execution_task_id = execution_result.id
+            campaign.status = 'RUNNING'
+        else:
+            execution_task_id = None
+            # Dry run - don't change status
         
+        campaign.updated_at = datetime.utcnow()
         db.session.commit()
         
-        # TODO: Queue Celery task for campaign execution
-        # from app.tasks.campaign_runner import execute_campaign
-        # execute_campaign.delay(campaign_id, trigger_data.dict())
-        
         response = CampaignTriggerResponse(
-            message='Campaign trigger initiated',
+            message='Campaign execution started' if not trigger_data.dry_run else 'Dry run completed',
             campaign_id=campaign_id,
             status=CampaignStatusEnum(campaign.status),
+            task_id=execution_task_id,
             dry_run=trigger_data.dry_run,
             immediate=trigger_data.immediate,
             segment_id=trigger_data.segment_id
