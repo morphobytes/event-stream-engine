@@ -9,17 +9,19 @@ import os
 import uuid
 from werkzeug.utils import secure_filename
 from app.main import db
-from app.core.data_model import User, Campaign, Template, Segment, ConsentState
+from app.core.data_model import User, Campaign, Template, Segment, Message, DeliveryReceipt, InboundEvent, ConsentState
 from app.api.v1.schemas import (
     UserCreate, UserUpdate, UserResponse, UserListResponse,
     CampaignCreate, CampaignUpdate, CampaignResponse, CampaignListResponse,
     SegmentCreate, SegmentResponse, TemplateResponse,
     CampaignTriggerRequest, CampaignTriggerResponse,
     ErrorResponse, ValidationErrorResponse, HealthResponse,
-    ConsentStateEnum, CampaignStatusEnum
+    ConsentStateEnum, CampaignStatusEnum,
+    MessageStatusResponse, CampaignSummaryStats, InboundEventResponse, ReportingDashboardResponse
 )
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
+from sqlalchemy import func, text, desc
 
 # Create API Blueprint
 api_v1 = Blueprint('api_v1', __name__, url_prefix='/api/v1')
@@ -590,4 +592,286 @@ def get_ingestion_task_status(task_id: str):
         return jsonify(ErrorResponse(
             error='Internal Server Error',
             message=f'Failed to get task status: {str(e)}'
+        ).dict()), 500
+
+
+# ============================================================================
+# REPORTING & MONITORING ENDPOINTS (Phase 4.0)
+# ============================================================================
+
+@api_v1.route('/messages/<int:message_id>', methods=['GET'])
+def get_message_status(message_id):
+    """
+    Get detailed status of a specific message
+    Endpoint: GET /api/v1/messages/{message_id}
+    """
+    try:
+        # Query message with left join to delivery receipt
+        message_query = db.session.query(Message, DeliveryReceipt)\
+            .outerjoin(DeliveryReceipt, Message.provider_sid == DeliveryReceipt.provider_sid)\
+            .filter(Message.id == message_id)
+        
+        result = message_query.first()
+        if not result:
+            return jsonify(ErrorResponse(
+                error='Not Found',
+                message=f'Message {message_id} not found'
+            ).dict()), 404
+            
+        message, delivery_receipt = result
+        
+        # Build response with delivery information if available
+        response_data = {
+            'message_id': message.id,
+            'user_phone': message.user_phone,
+            'campaign_id': message.campaign_id,
+            'template_id': message.template_id,
+            'rendered_content': message.rendered_content,
+            'status': message.status.value if hasattr(message.status, 'value') else str(message.status),
+            'channel': message.channel.value if hasattr(message.channel, 'value') else str(message.channel),
+            'provider_sid': message.provider_sid,
+            'sent_at': message.sent_at,
+            'error_code': message.error_code,
+            'error_message': message.error_message,
+            'created_at': message.created_at,
+            'delivery_status': delivery_receipt.message_status if delivery_receipt else None,
+            'delivered_at': delivery_receipt.received_at if delivery_receipt and delivery_receipt.message_status in ['delivered', 'read'] else None,
+            'read_at': delivery_receipt.received_at if delivery_receipt and delivery_receipt.message_status == 'read' else None
+        }
+        
+        return jsonify(MessageStatusResponse(**response_data).dict()), 200
+        
+    except Exception as e:
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=f'Failed to get message status: {str(e)}'
+        ).dict()), 500
+
+
+@api_v1.route('/reporting/campaigns/<int:campaign_id>/summary', methods=['GET'])
+def get_campaign_summary(campaign_id):
+    """
+    Get comprehensive campaign execution summary with BI metrics
+    Endpoint: GET /api/v1/reporting/campaigns/{campaign_id}/summary
+    """
+    try:
+        # Get campaign info
+        campaign = Campaign.query.get(campaign_id)
+        if not campaign:
+            return jsonify(ErrorResponse(
+                error='Not Found',
+                message=f'Campaign {campaign_id} not found'
+            ).dict()), 404
+        
+        # Get message statistics using SQL aggregation
+        message_stats = db.session.query(
+            func.count(Message.id).label('total_messages'),
+            func.sum(func.case((Message.status == 'QUEUED', 1), else_=0)).label('queued'),
+            func.sum(func.case((Message.status == 'SENT', 1), else_=0)).label('sent'),
+            func.sum(func.case((Message.status == 'FAILED', 1), else_=0)).label('failed')
+        ).filter(Message.campaign_id == campaign_id).first()
+        
+        # Get delivery statistics from delivery receipts
+        delivery_stats = db.session.query(
+            func.count(DeliveryReceipt.id).label('total_receipts'),
+            func.sum(func.case((DeliveryReceipt.message_status == 'delivered', 1), else_=0)).label('delivered'),
+            func.sum(func.case((DeliveryReceipt.message_status == 'read', 1), else_=0)).label('read')
+        ).join(Message, Message.provider_sid == DeliveryReceipt.provider_sid)\
+         .filter(Message.campaign_id == campaign_id).first()
+        
+        # Get error code analysis
+        error_analysis = db.session.query(
+            Message.error_code,
+            Message.error_message,
+            func.count(Message.id).label('count')
+        ).filter(
+            Message.campaign_id == campaign_id,
+            Message.error_code.isnot(None)
+        ).group_by(Message.error_code, Message.error_message)\
+         .order_by(desc(func.count(Message.id))).limit(5).all()
+        
+        # Get opt-outs during campaign (users who opted out after campaign started)
+        opt_outs_during = db.session.query(func.count(User.phone_e164)).filter(
+            User.consent_state.in_(['OPT_OUT', 'STOP']),
+            User.updated_at >= campaign.created_at if campaign.created_at else datetime.utcnow()
+        ).scalar() or 0
+        
+        # Calculate metrics
+        total_messages = message_stats.total_messages or 0
+        sent = message_stats.sent or 0
+        delivered = delivery_stats.delivered or 0
+        failed = message_stats.failed or 0
+        
+        delivery_rate = (delivered / sent * 100) if sent > 0 else 0.0
+        success_rate = ((sent - failed) / total_messages * 100) if total_messages > 0 else 0.0
+        
+        # Calculate average delivery time (mock calculation - would need timestamp analysis)
+        avg_delivery_time = None  # Could calculate from sent_at vs delivery receipt timestamps
+        
+        # Format error codes
+        top_errors = [
+            {
+                'error_code': str(error.error_code),
+                'error_message': error.error_message or 'Unknown error',
+                'count': error.count
+            }
+            for error in error_analysis
+        ]
+        
+        response_data = {
+            'campaign_id': campaign.id,
+            'campaign_topic': campaign.topic,
+            'campaign_status': campaign.status,
+            'total_recipients': total_messages,  # Assuming 1 message per recipient for now
+            'messages_queued': message_stats.queued or 0,
+            'messages_sent': sent,
+            'messages_delivered': delivered,
+            'messages_failed': failed,
+            'opt_outs_during_campaign': opt_outs_during,
+            'quiet_hours_skipped': 0,  # Would need task result analysis
+            'rate_limit_skipped': 0,   # Would need task result analysis  
+            'template_errors': 0,      # Would need task result analysis
+            'delivery_rate_percent': round(delivery_rate, 2),
+            'success_rate_percent': round(success_rate, 2),
+            'average_delivery_time_seconds': avg_delivery_time,
+            'top_error_codes': top_errors,
+            'campaign_started_at': campaign.created_at,
+            'campaign_completed_at': campaign.updated_at if campaign.status == 'COMPLETED' else None,
+            'last_updated': datetime.utcnow()
+        }
+        
+        return jsonify(CampaignSummaryStats(**response_data).dict()), 200
+        
+    except Exception as e:
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=f'Failed to get campaign summary: {str(e)}'
+        ).dict()), 500
+
+
+@api_v1.route('/monitoring/inbound', methods=['GET'])
+def get_recent_inbound_events():
+    """
+    Get recent inbound messages for monitoring dashboard
+    Endpoint: GET /api/v1/monitoring/inbound?limit=50&hours=24
+    """
+    try:
+        # Get query parameters
+        limit = request.args.get('limit', 50, type=int)
+        hours = request.args.get('hours', 24, type=int)
+        
+        # Calculate time threshold
+        time_threshold = datetime.utcnow() - timedelta(hours=hours)
+        
+        # Query recent inbound events
+        inbound_events = InboundEvent.query\
+            .filter(InboundEvent.received_at >= time_threshold)\
+            .order_by(desc(InboundEvent.received_at))\
+            .limit(limit).all()
+        
+        # Format response
+        events = []
+        for event in inbound_events:
+            events.append({
+                'event_id': event.id,
+                'user_phone': event.user_phone,
+                'message_body': event.message_body,
+                'media_url': event.media_url,
+                'channel_type': event.channel_type,
+                'provider_sid': event.provider_sid,
+                'received_at': event.received_at,
+                'processed': True,  # Assuming all stored events are processed
+                'normalized_body': event.normalized_body
+            })
+        
+        return jsonify({
+            'events': events,
+            'total_count': len(events),
+            'time_range_hours': hours,
+            'generated_at': datetime.utcnow()
+        }), 200
+        
+    except Exception as e:
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=f'Failed to get inbound events: {str(e)}'
+        ).dict()), 500
+
+
+@api_v1.route('/monitoring/dashboard', methods=['GET'])
+def get_reporting_dashboard():
+    """
+    Get overall system health and metrics for monitoring dashboard
+    Endpoint: GET /api/v1/monitoring/dashboard
+    """
+    try:
+        # Calculate time thresholds
+        now = datetime.utcnow()
+        day_ago = now - timedelta(days=1)
+        
+        # System health metrics
+        active_campaigns = Campaign.query.filter(Campaign.status.in_(['READY', 'RUNNING'])).count()
+        total_users = User.query.count()
+        opted_out_users = User.query.filter(User.consent_state.in_(['OPT_OUT', 'STOP'])).count()
+        
+        # Recent activity (24h)
+        recent_inbound = InboundEvent.query.filter(InboundEvent.received_at >= day_ago).count()
+        messages_sent_24h = Message.query.filter(
+            Message.created_at >= day_ago,
+            Message.status.in_(['SENT', 'DELIVERED'])
+        ).count()
+        
+        # Get delivered count via delivery receipts
+        messages_delivered_24h = db.session.query(func.count(DeliveryReceipt.id))\
+            .join(Message, Message.provider_sid == DeliveryReceipt.provider_sid)\
+            .filter(
+                Message.created_at >= day_ago,
+                DeliveryReceipt.message_status == 'delivered'
+            ).scalar() or 0
+        
+        # Calculate overall delivery rate
+        total_sent = Message.query.filter(Message.status.in_(['SENT', 'DELIVERED'])).count()
+        total_delivered = db.session.query(func.count(DeliveryReceipt.id))\
+            .join(Message, Message.provider_sid == DeliveryReceipt.provider_sid)\
+            .filter(DeliveryReceipt.message_status == 'delivered').scalar() or 0
+        
+        overall_delivery_rate = (total_delivered / total_sent * 100) if total_sent > 0 else 0.0
+        
+        # Recent errors
+        recent_errors_query = Message.query.filter(
+            Message.created_at >= day_ago,
+            Message.error_code.isnot(None)
+        ).order_by(desc(Message.created_at)).limit(10).all()
+        
+        recent_errors = [
+            {
+                'message_id': msg.id,
+                'error_code': msg.error_code,
+                'error_message': msg.error_message,
+                'user_phone': msg.user_phone,
+                'timestamp': msg.created_at
+            }
+            for msg in recent_errors_query
+        ]
+        
+        response_data = {
+            'active_campaigns': active_campaigns,
+            'recent_inbound_events': recent_inbound,
+            'total_users': total_users,
+            'opted_out_users': opted_out_users,
+            'messages_sent_24h': messages_sent_24h,
+            'messages_delivered_24h': messages_delivered_24h,
+            'inbound_messages_24h': recent_inbound,
+            'overall_delivery_rate': round(overall_delivery_rate, 2),
+            'average_campaign_execution_time': None,  # Would need task analysis
+            'recent_errors': recent_errors,
+            'generated_at': now
+        }
+        
+        return jsonify(ReportingDashboardResponse(**response_data).dict()), 200
+        
+    except Exception as e:
+        return jsonify(ErrorResponse(
+            error='Internal Server Error',
+            message=f'Failed to get dashboard metrics: {str(e)}'
         ).dict()), 500

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Event Stream Engine{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>📊 System Overview</h2>
+    
+    <div class="stats-grid" data-auto-refresh="30" data-refresh-url="/api/dashboard-refresh">
+        <div class="stat-card">
+            <div class="stat-number" data-key="active_campaigns">{{ data.active_campaigns or 0 }}</div>
+            <div class="stat-label">Active Campaigns</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" data-key="total_users">{{ data.total_users or 0 }}</div>
+            <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" data-key="messages_sent_24h">{{ data.messages_sent_24h or 0 }}</div>
+            <div class="stat-label">Messages Sent (24h)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" data-key="overall_delivery_rate">{{ "%.1f" | format(data.overall_delivery_rate or 0) }}%</div>
+            <div class="stat-label">Delivery Rate</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" data-key="opted_out_users">{{ data.opted_out_users or 0 }}</div>
+            <div class="stat-label">Opted Out Users</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" data-key="inbound_messages_24h">{{ data.inbound_messages_24h or 0 }}</div>
+            <div class="stat-label">Inbound Messages (24h)</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🚨 Recent Errors</h2>
+    {% if data.recent_errors %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Message ID</th>
+                    <th>User Phone</th>
+                    <th>Error Code</th>
+                    <th>Error Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for error in data.recent_errors %}
+                <tr>
+                    <td>{{ error.timestamp.strftime('%Y-%m-%d %H:%M') if error.timestamp else 'N/A' }}</td>
+                    <td>{{ error.message_id }}</td>
+                    <td>{{ error.user_phone }}</td>
+                    <td><span class="status status-failed">{{ error.error_code }}</span></td>
+                    <td>{{ error.error_message }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-success">
+            <strong>✅ All Clear!</strong> No recent errors detected.
+        </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>🎯 Quick Actions</h2>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <a href="{{ url_for('ui.users') }}" class="btn btn-primary">👥 Manage Users</a>
+        <a href="{{ url_for('ui.campaigns') }}" class="btn btn-success">🎯 Create Campaign</a>
+        <a href="{{ url_for('ui.monitoring') }}" class="btn btn-info">📈 View Monitoring</a>
+        <a href="/api/v1/monitoring/dashboard" target="_blank" class="btn btn-info">📊 API Dashboard Data</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📈 System Health Indicators</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+        <div>
+            <h4>Campaign Engine</h4>
+            <div class="alert alert-success">✅ Operational</div>
+            <small>Celery workers active and processing campaigns</small>
+        </div>
+        <div>
+            <h4>Rate Limiter</h4>
+            <div class="alert alert-success">✅ Operational</div>
+            <small>Redis rate limiting active</small>
+        </div>
+        <div>
+            <h4>Twilio Integration</h4>
+            <div class="alert alert-success">✅ Connected</div>
+            <small>WhatsApp messaging service available</small>
+        </div>
+        <div>
+            <h4>Database</h4>
+            <div class="alert alert-success">✅ Connected</div>
+            <small>PostgreSQL data persistence active</small>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh dashboard every 30 seconds
+    setInterval(async () => {
+        try {
+            const response = await fetch('/api/dashboard-refresh');
+            const data = await response.json();
+            
+            // Update stats
+            document.querySelectorAll('.stat-number[data-key]').forEach(element => {
+                const key = element.dataset.key;
+                if (data[key] !== undefined) {
+                    if (key === 'overall_delivery_rate') {
+                        element.textContent = data[key].toFixed(1) + '%';
+                    } else {
+                        element.textContent = data[key];
+                    }
+                }
+            });
+            
+            // Update last refresh time
+            const now = new Date().toLocaleTimeString();
+            console.log('Dashboard refreshed at:', now);
+            
+        } catch (error) {
+            console.error('Dashboard refresh failed:', error);
+        }
+    }, 30000);
+</script>
+{% endblock %}

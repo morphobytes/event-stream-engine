@@ -35,6 +35,10 @@ def create_app():
     # Register API blueprints
     from app.api.v1.public_api import api_v1
     app.register_blueprint(api_v1)
+    
+    # Register UI blueprint
+    from app.ui_routes import ui
+    app.register_blueprint(ui)
 
     # Basic health check route
     @app.route('/health')

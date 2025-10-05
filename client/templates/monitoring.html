@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring - Event Stream Engine{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>📈 Campaign Performance Summary</h2>
+    {% if campaign_summaries %}
+        <div class="stats-grid">
+            {% for summary in campaign_summaries %}
+            <div class="stat-card" style="text-align: left; border-left-color: 
+                {% if summary.campaign_status == 'COMPLETED' %}#28a745{% endif %}
+                {% if summary.campaign_status == 'RUNNING' %}#17a2b8{% endif %}
+                {% if summary.campaign_status == 'READY' %}#ffc107{% endif %}
+                {% if summary.campaign_status == 'DRAFT' %}#6c757d{% endif %}
+            ;">
+                <h4>{{ summary.campaign_topic }}</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
+                    <div>
+                        <strong>📤 Sent:</strong> {{ summary.messages_sent }}<br>
+                        <strong>✅ Delivered:</strong> {{ summary.messages_delivered }}<br>
+                        <strong>❌ Failed:</strong> {{ summary.messages_failed }}
+                    </div>
+                    <div>
+                        <strong>📊 Success Rate:</strong> {{ "%.1f" | format(summary.success_rate_percent) }}%<br>
+                        <strong>🎯 Delivery Rate:</strong> {{ "%.1f" | format(summary.delivery_rate_percent) }}%<br>
+                        <strong>📋 Status:</strong> <span class="status status-{{ summary.campaign_status.lower() }}">{{ summary.campaign_status }}</span>
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <a href="{{ url_for('ui.campaign_summary', campaign_id=summary.campaign_id) }}" 
+                       class="btn btn-info" style="padding: 4px 8px; font-size: 12px;">
+                        📊 View Details
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <strong>No campaign summaries available.</strong> Launch some campaigns to see performance data.
+        </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>📨 Recent Inbound Messages</h2>
+    <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 15px;">
+        <div>
+            <strong>Auto-refresh:</strong> 
+            <label style="margin-left: 10px;">
+                <input type="checkbox" id="auto-refresh" checked> Enable (30s intervals)
+            </label>
+        </div>
+        <div>
+            <button onclick="refreshInbound()" class="btn btn-info" style="padding: 6px 12px; font-size: 12px;">
+                🔄 Refresh Now
+            </button>
+        </div>
+    </div>
+    
+    <div id="inbound-container">
+        {% if inbound_events %}
+            <table class="table" id="inbound-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>From</th>
+                        <th>Message</th>
+                        <th>Channel</th>
+                        <th>Provider ID</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in inbound_events %}
+                    <tr>
+                        <td>{{ event.received_at.strftime('%H:%M:%S') if event.received_at else 'N/A' }}</td>
+                        <td>
+                            <code onclick="utils.copyToClipboard('{{ event.user_phone }}')" style="cursor: pointer;">
+                                {{ event.user_phone }}
+                            </code>
+                        </td>
+                        <td style="max-width: 200px;">
+                            {% if event.message_body %}
+                                <div style="white-space: pre-wrap; font-size: 13px;">{{ event.message_body[:100] }}{% if event.message_body|length > 100 %}...{% endif %}</div>
+                            {% else %}
+                                <em style="color: #666;">Media message</em>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status status-delivered">{{ event.channel_type.upper() }}</span>
+                        </td>
+                        <td>
+                            <code style="font-size: 11px;">{{ event.provider_sid[:20] }}...</code>
+                        </td>
+                        <td>
+                            <span class="status status-delivered">✅ Processed</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                <strong>📊 Inbound Summary:</strong> 
+                {{ inbound_events|length }} messages in last 24 hours
+                {% if inbound_events|length >= 50 %}
+                    (showing most recent 50)
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <strong>No recent inbound messages.</strong> Inbound messages will appear here when users reply to your campaigns.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <h2>🔍 Message Analysis</h2>
+    {% if inbound_events %}
+        {% set stop_keywords = inbound_events | selectattr('normalized_body', 'defined') | selectattr('normalized_body', 'in', ['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit']) | list %}
+        {% set media_messages = inbound_events | selectattr('message_body', 'none') | list %}
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ inbound_events|length }}</div>
+                <div class="stat-label">Total Messages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stop_keywords|length }}</div>
+                <div class="stat-label">Opt-out Requests</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ media_messages|length }}</div>
+                <div class="stat-label">Media Messages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ (inbound_events|length - stop_keywords|length - media_messages|length) }}</div>
+                <div class="stat-label">Regular Replies</div>
+            </div>
+        </div>
+        
+        {% if stop_keywords %}
+        <div class="alert alert-info">
+            <strong>📢 Compliance Alert:</strong> {{ stop_keywords|length }} users have requested to opt out. 
+            These have been automatically processed by our compliance engine.
+        </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>🚦 System Health Monitor</h2>
+    <div id="health-monitor" data-auto-refresh="15">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="celery-status">✅</div>
+                <div class="stat-label">Celery Workers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="redis-status">✅</div>
+                <div class="stat-label">Redis Cache</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="db-status">✅</div>
+                <div class="stat-label">Database</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="twilio-status">✅</div>
+                <div class="stat-label">Twilio API</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🔗 API Monitoring Tools</h2>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <a href="/api/v1/monitoring/dashboard" target="_blank" class="btn btn-info">📊 Dashboard API</a>
+        <a href="/api/v1/monitoring/inbound" target="_blank" class="btn btn-info">📨 Inbound API</a>
+        <a href="/health" target="_blank" class="btn btn-success">💚 Health Check</a>
+        <a href="/api/v1/tasks/status" target="_blank" class="btn btn-info">⚙️ Task Status</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let refreshInterval;
+    
+    // Auto-refresh functionality
+    function setupAutoRefresh() {
+        const checkbox = document.getElementById('auto-refresh');
+        
+        function startRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(refreshInbound, 30000);
+        }
+        
+        function stopRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+        }
+        
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                startRefresh();
+                window.app.showAlert('✅ Auto-refresh enabled (30s)', 'success');
+            } else {
+                stopRefresh();
+                window.app.showAlert('⏸️ Auto-refresh disabled', 'info');
+            }
+        });
+        
+        // Start auto-refresh if checkbox is checked
+        if (checkbox.checked) {
+            startRefresh();
+        }
+    }
+    
+    // Refresh inbound messages
+    async function refreshInbound() {
+        try {
+            const response = await fetch('/api/v1/monitoring/inbound?limit=50');
+            const data = await response.json();
+            
+            if (response.ok && data.events) {
+                updateInboundTable(data.events);
+                console.log('Inbound messages refreshed:', data.events.length, 'events');
+            }
+        } catch (error) {
+            console.error('Failed to refresh inbound messages:', error);
+        }
+    }
+    
+    // Update inbound table with new data
+    function updateInboundTable(events) {
+        const container = document.getElementById('inbound-container');
+        
+        if (events.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>No recent inbound messages.</strong> Inbound messages will appear here when users reply to your campaigns.
+                </div>
+            `;
+            return;
+        }
+        
+        let tableHTML = `
+            <table class="table" id="inbound-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>From</th>
+                        <th>Message</th>
+                        <th>Channel</th>
+                        <th>Provider ID</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        events.forEach(event => {
+            const receivedTime = new Date(event.received_at).toLocaleTimeString();
+            const messageBody = event.message_body 
+                ? (event.message_body.length > 100 
+                    ? event.message_body.substring(0, 100) + '...' 
+                    : event.message_body)
+                : '<em style="color: #666;">Media message</em>';
+            
+            tableHTML += `
+                <tr>
+                    <td>${receivedTime}</td>
+                    <td>
+                        <code onclick="utils.copyToClipboard('${event.user_phone}')" style="cursor: pointer;">
+                            ${event.user_phone}
+                        </code>
+                    </td>
+                    <td style="max-width: 200px;">
+                        <div style="white-space: pre-wrap; font-size: 13px;">${messageBody}</div>
+                    </td>
+                    <td>
+                        <span class="status status-delivered">${event.channel_type.toUpperCase()}</span>
+                    </td>
+                    <td>
+                        <code style="font-size: 11px;">${event.provider_sid.substring(0, 20)}...</code>
+                    </td>
+                    <td>
+                        <span class="status status-delivered">✅ Processed</span>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tableHTML += `
+                </tbody>
+            </table>
+            <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                <strong>📊 Inbound Summary:</strong> 
+                ${events.length} messages in last 24 hours
+                ${events.length >= 50 ? '(showing most recent 50)' : ''}
+            </div>
+        `;
+        
+        container.innerHTML = tableHTML;
+    }
+    
+    // Health monitoring
+    async function checkSystemHealth() {
+        try {
+            // Check main health endpoint
+            const healthResponse = await fetch('/health');
+            const healthData = await healthResponse.json();
+            
+            // Update health indicators
+            document.getElementById('celery-status').textContent = healthData.status === 'healthy' ? '✅' : '❌';
+            document.getElementById('db-status').textContent = healthData.status === 'healthy' ? '✅' : '❌';
+            
+            // Check Redis via dashboard API
+            const dashboardResponse = await fetch('/api/v1/monitoring/dashboard');
+            if (dashboardResponse.ok) {
+                document.getElementById('redis-status').textContent = '✅';
+                document.getElementById('twilio-status').textContent = '✅';
+            } else {
+                document.getElementById('redis-status').textContent = '❌';
+                document.getElementById('twilio-status').textContent = '❌';
+            }
+            
+        } catch (error) {
+            console.error('Health check failed:', error);
+            // Set all to error state
+            ['celery-status', 'redis-status', 'db-status', 'twilio-status'].forEach(id => {
+                document.getElementById(id).textContent = '❌';
+            });
+        }
+    }
+    
+    // Initialize monitoring
+    document.addEventListener('DOMContentLoaded', function() {
+        setupAutoRefresh();
+        checkSystemHealth();
+        
+        // Health check every 15 seconds
+        setInterval(checkSystemHealth, 15000);
+    });
+</script>
+{% endblock %}

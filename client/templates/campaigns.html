@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Campaign Management - Event Stream Engine{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>🎯 Create New Campaign</h2>
+    <form id="campaign-form">
+        <div class="form-group">
+            <label for="topic">Campaign Topic</label>
+            <input type="text" id="topic" name="topic" class="form-control" 
+                   placeholder="e.g., price_alerts, product_updates" required>
+            <small>Unique identifier for this campaign type</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="template_id">Message Template</label>
+            <select id="template_id" name="template_id" class="form-control" required>
+                <option value="">Select a template...</option>
+                {% for template in templates %}
+                <option value="{{ template.id }}">
+                    {{ template.name }} ({{ template.channel }})
+                </option>
+                {% endfor %}
+            </select>
+            {% if not templates %}
+            <small style="color: #e74c3c;">No templates available. Create a template first via API.</small>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label for="schedule_time">Schedule Time (Optional)</label>
+            <input type="datetime-local" id="schedule_time" name="schedule_time" class="form-control">
+            <small>Leave empty to start campaign immediately</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="rate_limit_per_second">Rate Limit (messages/second)</label>
+            <input type="number" id="rate_limit_per_second" name="rate_limit_per_second" 
+                   class="form-control" value="10" min="1" max="100" required>
+            <small>Maximum messages to send per second (1-100)</small>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group">
+                <label for="quiet_hours_start">Quiet Hours Start</label>
+                <input type="time" id="quiet_hours_start" name="quiet_hours_start" 
+                       class="form-control" value="22:00">
+            </div>
+            <div class="form-group">
+                <label for="quiet_hours_end">Quiet Hours End</label>
+                <input type="time" id="quiet_hours_end" name="quiet_hours_end" 
+                       class="form-control" value="08:00">
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-success">🚀 Create Campaign</button>
+        <button type="button" class="btn btn-info" onclick="previewCampaign()">👁️ Preview</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>📋 Campaign List</h2>
+    {% if campaigns %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Topic</th>
+                    <th>Status</th>
+                    <th>Template</th>
+                    <th>Rate Limit</th>
+                    <th>Schedule</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for campaign in campaigns %}
+                <tr>
+                    <td><strong>#{{ campaign.id }}</strong></td>
+                    <td>{{ campaign.topic }}</td>
+                    <td>
+                        <span class="status 
+                            {% if campaign.status == 'READY' %}status-queued{% endif %}
+                            {% if campaign.status == 'RUNNING' %}status-sent{% endif %}
+                            {% if campaign.status == 'COMPLETED' %}status-delivered{% endif %}
+                            {% if campaign.status == 'DRAFT' %}status-failed{% endif %}
+                        ">
+                            {{ campaign.status }}
+                        </span>
+                    </td>
+                    <td>Template #{{ campaign.template_id }}</td>
+                    <td>{{ campaign.rate_limit_per_second }}/sec</td>
+                    <td>
+                        {% if campaign.schedule_time %}
+                            {{ campaign.schedule_time.strftime('%Y-%m-%d %H:%M') }}
+                        {% else %}
+                            <em>Immediate</em>
+                        {% endif %}
+                    </td>
+                    <td style="display: flex; gap: 8px;">
+                        {% if campaign.status in ['READY', 'DRAFT'] %}
+                            <button class="btn btn-success btn-trigger-campaign" 
+                                    data-campaign-id="{{ campaign.id }}" style="padding: 6px 12px; font-size: 12px;">
+                                ▶️ Trigger
+                            </button>
+                        {% endif %}
+                        <a href="{{ url_for('ui.campaign_summary', campaign_id=campaign.id) }}" 
+                           class="btn btn-info" style="padding: 6px 12px; font-size: 12px;">
+                            📊 Summary
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div id="task-results" style="margin-top: 20px;"></div>
+    {% else %}
+        <div class="alert alert-info">
+            <strong>No campaigns found.</strong> Create your first campaign using the form above.
+        </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>📊 Campaign Statistics</h2>
+    <div class="stats-grid">
+        {% set ready_count = campaigns | selectattr('status', 'equalto', 'READY') | list | length %}
+        {% set running_count = campaigns | selectattr('status', 'equalto', 'RUNNING') | list | length %}
+        {% set completed_count = campaigns | selectattr('status', 'equalto', 'COMPLETED') | list | length %}
+        {% set draft_count = campaigns | selectattr('status', 'equalto', 'DRAFT') | list | length %}
+        
+        <div class="stat-card">
+            <div class="stat-number">{{ ready_count }}</div>
+            <div class="stat-label">Ready to Launch</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ running_count }}</div>
+            <div class="stat-label">Currently Running</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ completed_count }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ draft_count }}</div>
+            <div class="stat-label">Drafts</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🔗 API Integration</h2>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <a href="/api/v1/campaigns" target="_blank" class="btn btn-info">📊 Campaigns API</a>
+        <a href="/api/v1/templates" target="_blank" class="btn btn-info">📝 Templates API</a>
+        <a href="/api/v1/segments" target="_blank" class="btn btn-info">🎯 Segments API</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Campaign form submission
+    document.getElementById('campaign-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData);
+        const submitButton = this.querySelector('button[type="submit"]');
+        
+        // Convert empty schedule_time to null
+        if (!data.schedule_time) {
+            delete data.schedule_time;
+        }
+        
+        // Convert rate limit to integer
+        data.rate_limit_per_second = parseInt(data.rate_limit_per_second);
+        data.template_id = parseInt(data.template_id);
+        
+        submitButton.textContent = '🚀 Creating...';
+        submitButton.disabled = true;
+        
+        try {
+            const response = await fetch('/api/v1/campaigns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                window.app.showAlert('✅ Campaign created successfully!', 'success');
+                this.reset();
+                // Refresh the page to show new campaign
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                window.app.showAlert(`❌ Error: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            window.app.showAlert(`❌ Network error: ${error.message}`, 'error');
+        } finally {
+            submitButton.textContent = '🚀 Create Campaign';
+            submitButton.disabled = false;
+        }
+    });
+    
+    // Campaign trigger buttons
+    document.querySelectorAll('.btn-trigger-campaign').forEach(button => {
+        button.addEventListener('click', async function() {
+            const campaignId = this.dataset.campaignId;
+            const originalText = this.textContent;
+            
+            if (!confirm(`Are you sure you want to trigger Campaign #${campaignId}?`)) {
+                return;
+            }
+            
+            this.textContent = '⏳ Triggering...';
+            this.disabled = true;
+            
+            try {
+                const response = await fetch(`/api/v1/campaigns/${campaignId}/trigger`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    window.app.showAlert(`✅ Campaign #${campaignId} triggered! Task ID: ${result.task_id}`, 'success');
+                    
+                    // Show task info
+                    const taskResults = document.getElementById('task-results');
+                    taskResults.innerHTML += `
+                        <div class="alert alert-success">
+                            <strong>Campaign #${campaignId} Launched!</strong><br>
+                            Task ID: <code>${result.task_id}</code><br>
+                            Status: ${result.status}<br>
+                            <a href="/api/v1/tasks/${result.task_id}/status" target="_blank" class="btn btn-info" style="margin-top: 10px; padding: 4px 8px; font-size: 12px;">
+                                📊 Track Progress
+                            </a>
+                        </div>
+                    `;
+                    
+                    // Update button to show completed
+                    this.textContent = '✅ Launched';
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-info');
+                    
+                } else {
+                    window.app.showAlert(`❌ Error: ${result.message}`, 'error');
+                    this.textContent = originalText;
+                    this.disabled = false;
+                }
+            } catch (error) {
+                window.app.showAlert(`❌ Network error: ${error.message}`, 'error');
+                this.textContent = originalText;
+                this.disabled = false;
+            }
+        });
+    });
+    
+    // Preview function
+    function previewCampaign() {
+        const formData = new FormData(document.getElementById('campaign-form'));
+        const data = Object.fromEntries(formData);
+        
+        const preview = `
+            <h3>Campaign Preview</h3>
+            <p><strong>Topic:</strong> ${data.topic}</p>
+            <p><strong>Template ID:</strong> ${data.template_id}</p>
+            <p><strong>Rate Limit:</strong> ${data.rate_limit_per_second} messages/second</p>
+            <p><strong>Quiet Hours:</strong> ${data.quiet_hours_start} - ${data.quiet_hours_end}</p>
+            <p><strong>Schedule:</strong> ${data.schedule_time || 'Immediate'}</p>
+        `;
+        
+        window.app.showAlert(preview, 'info');
+    }
+</script>
+{% endblock %}

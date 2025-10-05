@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - Event Stream Engine{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>📤 Bulk User Upload</h2>
+    <p>Upload users via CSV or JSON file. The system will automatically validate E.164 phone numbers and handle duplicates.</p>
+    
+    <form id="bulk-upload-form" enctype="multipart/form-data">
+        <div class="file-upload">
+            <div>
+                <h3>📁 Drop your file here or click to browse</h3>
+                <p>Supported formats: CSV, JSON</p>
+                <p>Required fields: phone_e164, attributes (optional), consent_state (optional)</p>
+            </div>
+            <input type="file" id="file-input" name="file" accept=".csv,.json" style="display: none;">
+        </div>
+        
+        <div class="file-info" style="margin-top: 15px;"></div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="allow_duplicates" value="true" style="margin-right: 8px;">
+                Merge with existing users (update attributes)
+            </label>
+        </div>
+        
+        <div class="progress-bar" style="display: none;">
+            <div class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">📤 Upload Users</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>👥 User List</h2>
+    {% if users %}
+        <div style="margin-bottom: 20px;">
+            <strong>Total Users:</strong> {{ users|length }}
+        </div>
+        
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Phone Number</th>
+                    <th>Consent State</th>
+                    <th>Attributes</th>
+                    <th>Created</th>
+                    <th>Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users[:50] %}  <!-- Limit display to 50 for performance -->
+                <tr>
+                    <td>
+                        <code onclick="utils.copyToClipboard('{{ user.phone_e164 }}')" style="cursor: pointer;">
+                            {{ user.phone_e164 }}
+                        </code>
+                    </td>
+                    <td>
+                        <span class="status 
+                            {% if user.consent_state == 'OPT_IN' %}status-delivered{% endif %}
+                            {% if user.consent_state == 'OPT_OUT' %}status-failed{% endif %}
+                            {% if user.consent_state == 'STOP' %}status-failed{% endif %}
+                        ">
+                            {{ user.consent_state }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if user.attributes %}
+                            <details>
+                                <summary>{{ user.attributes.keys()|length }} attributes</summary>
+                                <pre style="font-size: 12px; max-width: 200px; white-space: pre-wrap;">{{ user.attributes | tojsonpretty }}</pre>
+                            </details>
+                        {% else %}
+                            <em>None</em>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else 'N/A' }}</td>
+                    <td>{{ user.updated_at.strftime('%Y-%m-%d %H:%M') if user.updated_at else 'N/A' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if users|length > 50 %}
+        <div class="alert alert-info">
+            <strong>Note:</strong> Showing first 50 users. Total users: {{ users|length }}
+        </div>
+        {% endif %}
+        
+    {% else %}
+        <div class="alert alert-info">
+            <strong>No users found.</strong> Upload your first batch of users using the form above.
+        </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>📊 User Statistics</h2>
+    <div class="stats-grid">
+        {% set opt_in_count = users | selectattr('consent_state', 'equalto', 'OPT_IN') | list | length %}
+        {% set opt_out_count = users | selectattr('consent_state', 'equalto', 'OPT_OUT') | list | length %}
+        {% set stop_count = users | selectattr('consent_state', 'equalto', 'STOP') | list | length %}
+        
+        <div class="stat-card">
+            <div class="stat-number">{{ opt_in_count }}</div>
+            <div class="stat-label">Opted In</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ opt_out_count }}</div>
+            <div class="stat-label">Opted Out</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ stop_count }}</div>
+            <div class="stat-label">Stopped</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ "%.1f" | format((opt_in_count / users|length * 100) if users|length > 0 else 0) }}%</div>
+            <div class="stat-label">Engagement Rate</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📝 Sample CSV Format</h2>
+    <p>Use this format for bulk user uploads:</p>
+    <pre style="background: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto;">
+phone_e164,consent_state,name,location,product_interest
++94771234567,OPT_IN,John Doe,Colombo,electronics
++94771234568,OPT_IN,Jane Smith,Kandy,fashion
++94771234569,OPT_OUT,Bob Wilson,Galle,books</pre>
+    
+    <p><strong>JSON Format:</strong></p>
+    <pre style="background: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto;">
+[
+  {
+    "phone_e164": "+94771234567",
+    "consent_state": "OPT_IN",
+    "attributes": {
+      "name": "John Doe",
+      "location": "Colombo",
+      "product_interest": "electronics"
+    }
+  }
+]</pre>
+</div>
+
+<div class="card">
+    <h2>🔗 API Integration</h2>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <a href="/api/v1/users" target="_blank" class="btn btn-info">📊 View Users API</a>
+        <a href="/api/v1/users/bulk" target="_blank" class="btn btn-info">📤 Bulk Upload API</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Enhanced file upload handling
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('bulk-upload-form');
+        const fileInput = document.getElementById('file-input');
+        const progressBar = document.querySelector('.progress-bar');
+        const progressFill = document.querySelector('.progress-bar-fill');
+        
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!fileInput.files[0]) {
+                window.app.showAlert('Please select a file first', 'error');
+                return;
+            }
+            
+            const formData = new FormData(form);
+            const submitButton = form.querySelector('button[type="submit"]');
+            
+            submitButton.textContent = 'Processing...';
+            submitButton.disabled = true;
+            progressBar.style.display = 'block';
+            
+            // Simulate progress (real implementation would use progress events)
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 20;
+                if (progress > 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }, 200);
+            
+            try {
+                const response = await fetch('/api/v1/users/bulk', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    window.app.showAlert(`✅ Success! Processed ${result.total_processed || 0} users`, 'success');
+                    form.reset();
+                    document.querySelector('.file-info').innerHTML = '';
+                    
+                    // Refresh the page to show new users
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    window.app.showAlert(`❌ Error: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                window.app.showAlert(`❌ Network error: ${error.message}`, 'error');
+            } finally {
+                submitButton.textContent = '📤 Upload Users';
+                submitButton.disabled = false;
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                    progressFill.style.width = '0%';
+                }, 1000);
+            }
+        });
+    });
+</script>
+{% endblock %}

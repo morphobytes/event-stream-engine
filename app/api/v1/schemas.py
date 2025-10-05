@@ -217,3 +217,105 @@ class BulkIngestionResult(BaseModel):
     started_at: str
     completed_at: Optional[str] = None
     errors: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+# ============================================================================
+# REPORTING & MONITORING SCHEMAS (Phase 4.0)
+# ============================================================================
+
+class MessageStatusResponse(BaseModel):
+    """Individual message status and tracking information"""
+    model_config = base_config
+    
+    message_id: int
+    user_phone: str
+    campaign_id: int
+    template_id: int
+    rendered_content: str
+    status: MessageStatusEnum
+    channel: ChannelTypeEnum
+    provider_sid: Optional[str] = None
+    sent_at: Optional[datetime] = None
+    error_code: Optional[int] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    
+    # Delivery receipt info (if available)
+    delivery_status: Optional[str] = None
+    delivered_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
+
+class CampaignSummaryStats(BaseModel):
+    """Campaign execution summary with business intelligence metrics"""
+    model_config = base_config
+    
+    campaign_id: int
+    campaign_topic: str
+    campaign_status: str
+    
+    # Execution metrics
+    total_recipients: int
+    messages_queued: int
+    messages_sent: int
+    messages_delivered: int
+    messages_failed: int
+    
+    # Compliance metrics  
+    opt_outs_during_campaign: int
+    quiet_hours_skipped: int
+    rate_limit_skipped: int
+    template_errors: int
+    
+    # Performance metrics
+    delivery_rate_percent: float
+    success_rate_percent: float
+    average_delivery_time_seconds: Optional[float] = None
+    
+    # Error analysis
+    top_error_codes: List[Dict[str, Union[str, int]]] = Field(default_factory=list)
+    
+    # Timestamps
+    campaign_started_at: Optional[datetime] = None
+    campaign_completed_at: Optional[datetime] = None
+    last_updated: datetime
+
+class InboundEventResponse(BaseModel):
+    """Inbound webhook event information for monitoring"""
+    model_config = base_config
+    
+    event_id: int
+    user_phone: str
+    message_body: Optional[str] = None
+    media_url: Optional[str] = None
+    channel_type: str
+    provider_sid: str
+    received_at: datetime
+    processed: bool
+    
+    # Normalized fields
+    normalized_body: Optional[str] = None
+    
+class ReportingDashboardResponse(BaseModel):
+    """Overall system health and metrics for dashboard"""
+    model_config = base_config
+    
+    # System health
+    active_campaigns: int
+    recent_inbound_events: int
+    total_users: int
+    opted_out_users: int
+    
+    # Recent activity (last 24 hours)
+    messages_sent_24h: int
+    messages_delivered_24h: int
+    inbound_messages_24h: int
+    
+    # Performance metrics
+    overall_delivery_rate: float
+    average_campaign_execution_time: Optional[float] = None
+    
+    # Error tracking
+    recent_errors: List[Dict[str, Any]] = Field(default_factory=list)
+    
+    # Timestamp
+    generated_at: datetime

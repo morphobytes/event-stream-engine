@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Campaign #{{ summary.campaign_id }} Summary - Event Stream Engine{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: between; align-items: center;">
+        <div>
+            <h2>📊 Campaign #{{ summary.campaign_id }}: {{ summary.campaign_topic }}</h2>
+            <p style="color: #666; margin: 5px 0;">
+                <span class="status 
+                    {% if summary.campaign_status == 'COMPLETED' %}status-delivered{% endif %}
+                    {% if summary.campaign_status == 'RUNNING' %}status-sent{% endif %}
+                    {% if summary.campaign_status == 'READY' %}status-queued{% endif %}
+                    {% if summary.campaign_status == 'DRAFT' %}status-failed{% endif %}
+                ">
+                    {{ summary.campaign_status }}
+                </span>
+                • Last Updated: {{ summary.last_updated.strftime('%Y-%m-%d %H:%M:%S') if summary.last_updated else 'N/A' }}
+            </p>
+        </div>
+        <div>
+            <a href="{{ url_for('ui.campaigns') }}" class="btn btn-info">← Back to Campaigns</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📈 Performance Metrics</h2>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ summary.total_recipients }}</div>
+            <div class="stat-label">Total Recipients</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ summary.messages_sent }}</div>
+            <div class="stat-label">Messages Sent</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ summary.messages_delivered }}</div>
+            <div class="stat-label">Messages Delivered</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ summary.messages_failed }}</div>
+            <div class="stat-label">Messages Failed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ "%.1f" | format(summary.success_rate_percent) }}%</div>
+            <div class="stat-label">Success Rate</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ "%.1f" | format(summary.delivery_rate_percent) }}%</div>
+            <div class="stat-label">Delivery Rate</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🛡️ Compliance & Skipped Messages</h2>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ summary.opt_outs_during_campaign }}</div>
+            <div class="stat-label">Opt-outs During Campaign</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ summary.quiet_hours_skipped }}</div>
+            <div class="stat-label">Quiet Hours Skipped</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ summary.rate_limit_skipped }}</div>
+            <div class="stat-label">Rate Limit Skipped</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ summary.template_errors }}</div>
+            <div class="stat-label">Template Errors</div>
+        </div>
+    </div>
+</div>
+
+{% if summary.top_error_codes %}
+<div class="card">
+    <h2>🚨 Error Analysis</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Error Code</th>
+                <th>Error Message</th>
+                <th>Count</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for error in summary.top_error_codes %}
+            <tr>
+                <td><span class="status status-failed">{{ error.error_code }}</span></td>
+                <td>{{ error.error_message }}</td>
+                <td><strong>{{ error.count }}</strong></td>
+                <td>{{ "%.1f" | format((error.count / summary.messages_failed * 100) if summary.messages_failed > 0 else 0) }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>⏱️ Campaign Timeline</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div>
+            <h4>📅 Campaign Dates</h4>
+            <table style="width: 100%; border-collapse: separate; border-spacing: 0 8px;">
+                <tr>
+                    <td style="font-weight: 600; color: #666;">Started:</td>
+                    <td>{{ summary.campaign_started_at.strftime('%Y-%m-%d %H:%M:%S') if summary.campaign_started_at else 'Not started' }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #666;">Completed:</td>
+                    <td>{{ summary.campaign_completed_at.strftime('%Y-%m-%d %H:%M:%S') if summary.campaign_completed_at else 'Not completed' }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #666;">Duration:</td>
+                    <td>
+                        {% if summary.campaign_started_at and summary.campaign_completed_at %}
+                            {% set duration = summary.campaign_completed_at - summary.campaign_started_at %}
+                            {{ duration.total_seconds() // 60 }} minutes
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div>
+            <h4>⚡ Performance</h4>
+            <table style="width: 100%; border-collapse: separate; border-spacing: 0 8px;">
+                <tr>
+                    <td style="font-weight: 600; color: #666;">Avg Delivery Time:</td>
+                    <td>{{ summary.average_delivery_time_seconds or 'N/A' }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #666;">Messages Queued:</td>
+                    <td>{{ summary.messages_queued }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #666;">Processing Rate:</td>
+                    <td>
+                        {% if summary.campaign_started_at and summary.campaign_completed_at and summary.messages_sent > 0 %}
+                            {% set duration_seconds = (summary.campaign_completed_at - summary.campaign_started_at).total_seconds() %}
+                            {{ "%.1f" | format(summary.messages_sent / duration_seconds) }} msg/sec
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📊 Visual Performance Overview</h2>
+    <div style="margin-bottom: 20px;">
+        <h4>Message Delivery Breakdown</h4>
+        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+            <div style="width: 100%; height: 30px; background: #e9ecef; border-radius: 15px; overflow: hidden; display: flex;">
+                {% set total = summary.messages_sent + summary.messages_failed %}
+                {% if total > 0 %}
+                    <div style="background: #28a745; width: {{ (summary.messages_delivered / total * 100) }}%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                        {% if summary.messages_delivered / total > 0.1 %}Delivered ({{ summary.messages_delivered }}){% endif %}
+                    </div>
+                    <div style="background: #17a2b8; width: {{ ((summary.messages_sent - summary.messages_delivered) / total * 100) }}%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                        {% if (summary.messages_sent - summary.messages_delivered) / total > 0.1 %}Sent ({{ summary.messages_sent - summary.messages_delivered }}){% endif %}
+                    </div>
+                    <div style="background: #dc3545; width: {{ (summary.messages_failed / total * 100) }}%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                        {% if summary.messages_failed / total > 0.1 %}Failed ({{ summary.messages_failed }}){% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        <div style="display: flex; gap: 20px; font-size: 14px;">
+            <div><span style="color: #28a745;">●</span> Delivered: {{ summary.messages_delivered }} ({{ "%.1f" | format(summary.delivery_rate_percent) }}%)</div>
+            <div><span style="color: #17a2b8;">●</span> Sent: {{ summary.messages_sent - summary.messages_delivered }}</div>
+            <div><span style="color: #dc3545;">●</span> Failed: {{ summary.messages_failed }} ({{ "%.1f" | format((summary.messages_failed / total * 100) if total > 0 else 0) }}%)</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🔗 Related Actions</h2>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <a href="/api/v1/reporting/campaigns/{{ summary.campaign_id }}/summary" target="_blank" class="btn btn-info">
+            📊 Raw API Data
+        </a>
+        <a href="/api/v1/campaigns/{{ summary.campaign_id }}" target="_blank" class="btn btn-info">
+            📋 Campaign Details API
+        </a>
+        {% if summary.campaign_status in ['READY', 'DRAFT'] %}
+        <button class="btn btn-success btn-trigger-campaign" data-campaign-id="{{ summary.campaign_id }}">
+            ▶️ Trigger Campaign
+        </button>
+        {% endif %}
+        <button onclick="downloadSummary()" class="btn btn-info">
+            📥 Download Summary
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh campaign summary every 30 seconds if campaign is running
+    {% if summary.campaign_status == 'RUNNING' %}
+    setInterval(() => {
+        window.location.reload();
+    }, 30000);
+    {% endif %}
+    
+    // Campaign trigger functionality
+    document.querySelectorAll('.btn-trigger-campaign').forEach(button => {
+        button.addEventListener('click', async function() {
+            const campaignId = this.dataset.campaignId;
+            
+            if (!confirm(`Are you sure you want to trigger Campaign #${campaignId}?`)) {
+                return;
+            }
+            
+            this.textContent = '⏳ Triggering...';
+            this.disabled = true;
+            
+            try {
+                const response = await fetch(`/api/v1/campaigns/${campaignId}/trigger`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    window.app.showAlert(`✅ Campaign #${campaignId} triggered! Task ID: ${result.task_id}`, 'success');
+                    
+                    // Refresh page after 2 seconds to show updated status
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    window.app.showAlert(`❌ Error: ${result.message}`, 'error');
+                    this.textContent = '▶️ Trigger Campaign';
+                    this.disabled = false;
+                }
+            } catch (error) {
+                window.app.showAlert(`❌ Network error: ${error.message}`, 'error');
+                this.textContent = '▶️ Trigger Campaign';
+                this.disabled = false;
+            }
+        });
+    });
+    
+    // Download summary as JSON
+    function downloadSummary() {
+        const summary = {{ summary | tojson }};
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(summary, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "campaign-{{ summary.campaign_id }}-summary.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        
+        window.app.showAlert('📥 Summary downloaded!', 'success');
+    }
+</script>
+{% endblock %}

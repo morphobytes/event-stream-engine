@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Event Stream Engine{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('ui.static', filename='style.css') }}">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📬</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📬 Event Stream Engine</h1>
+            <p class="subtitle">WhatsApp Campaign Orchestration & Compliance Platform</p>
+        </div>
+
+        <div class="nav-tabs">
+            <a href="{{ url_for('ui.dashboard') }}" class="nav-tab {{ 'active' if active_tab == 'dashboard' }}">
+                📊 Dashboard
+            </a>
+            <a href="{{ url_for('ui.users') }}" class="nav-tab {{ 'active' if active_tab == 'users' }}">
+                👥 Users
+            </a>
+            <a href="{{ url_for('ui.campaigns') }}" class="nav-tab {{ 'active' if active_tab == 'campaigns' }}">
+                🎯 Campaigns
+            </a>
+            <a href="{{ url_for('ui.monitoring') }}" class="nav-tab {{ 'active' if active_tab == 'monitoring' }}">
+                📈 Monitoring
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="{{ url_for('ui.static', filename='app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
