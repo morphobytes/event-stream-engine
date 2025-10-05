@@ -25,10 +25,10 @@ A **production-grade event-driven messaging platform** for personalized WhatsApp
 **[View Complete Documentation Portal](./documentation.md)**
 
 ### **Quick Navigation**
+- **[Deployment Guide](./documentation/11-deployment-guide.md)** - Complete local & cloud deployment instructions
 - **[System Architecture & DDL](./documentation/01-system-architecture.md)** - Complete system design and data contracts
 - **[6-Step Compliance Pipeline](./documentation/03-compliance-pipeline.md)** - Detailed compliance implementation  
 - **[API Reference](./documentation/08-api-reference.md)** - Complete REST API documentation
-- **[Environment Setup](./documentation/07-environment-setup.md)** - Local development & deployment guide
 - **[Monitoring & Analytics](./documentation/09-monitoring-analytics.md)** - Performance monitoring and reporting
 
 ## Quick Start
@@ -239,7 +239,7 @@ POST /webhooks/inbound     # Incoming WhatsApp messages
 POST /webhooks/status      # Delivery status callbacks
 ```
 
-## 🌐 Web Interface Features
+## Web Interface Features
 
 ### Dashboard (`http://localhost:5000/`)
 - **System Overview**: Total users, campaigns, message volume metrics
@@ -333,10 +333,10 @@ docker run -p 5000:5000 event-stream-engine
 
 ---
 
-## 📚 Documentation & Technical Specifications
+## Documentation & Technical Specifications
 
-### **📖 Complete Documentation Portal**
-**👉 [Access Full Documentation](./documentation.md) 👈**
+### **Complete Documentation Portal**
+**[Access Full Documentation](./documentation.md)**
 
 The Event Stream Engine includes comprehensive technical documentation covering:
 
@@ -388,7 +388,7 @@ TWILIO_ACCOUNT_SID=production_sid
 TWILIO_AUTH_TOKEN=production_token
 ```
 
-## 🏆 Release History
+## Release History
 
 - **v3.0.0** - Complete core engine (Phases 1-3): Webhook processing, campaign orchestration, bulk ingestion
 - **v4.0.0** - Reporting & Web UI (Phase 4): Analytics APIs, interactive dashboard, comprehensive monitoring

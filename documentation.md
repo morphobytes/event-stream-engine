@@ -14,6 +14,7 @@
 - **[Codebase Quality](./documentation/06-codebase-quality.md)** - Code quality improvements and production readiness
 
 ### **Operations & Deployment**
+- **[Complete Deployment Guide](./documentation/11-deployment-guide.md)** - Unified guide for local Docker Compose and GCP production deployment
 - **[Environment Setup & Configuration](./documentation/07-environment-setup.md)** - Local development, Docker, and production deployment
 - **[API Reference](./documentation/08-api-reference.md)** - Complete REST API documentation with examples
 - **[Monitoring & Analytics](./documentation/09-monitoring-analytics.md)** - System monitoring, reporting, and performance metrics
@@ -25,7 +26,7 @@
 
 | **For Developers** | **For Reviewers** | **For Operations** |
 |-------------------|-------------------|-------------------|
-| [Environment Setup](./documentation/07-environment-setup.md) | [System Architecture](./documentation/01-system-architecture.md) | [Monitoring Guide](./documentation/09-monitoring-analytics.md) |
+| [Deployment Guide](./documentation/11-deployment-guide.md) | [System Architecture](./documentation/01-system-architecture.md) | [Monitoring Guide](./documentation/09-monitoring-analytics.md) |
 | [Data Model](./documentation/02-data-model.md) | [Compliance Pipeline](./documentation/03-compliance-pipeline.md) | [API Reference](./documentation/08-api-reference.md) |
 | [Codebase Quality](./documentation/06-codebase-quality.md) | [Testing Results](./documentation/05-testing-validation.md) | [Versioning Strategy](./documentation/10-versioning-strategy.md) |
 
@@ -49,7 +50,7 @@
 - Type safety with Python type hints
 - PEP 8 compliant codebase with automated formatting
 - SQL query optimization for performance
-- ✅ Enterprise-grade code quality standards
+- Enterprise-grade code quality standards
 
 ---
 

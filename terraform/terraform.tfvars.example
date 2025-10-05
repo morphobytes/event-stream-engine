@@ -1,0 +1,29 @@
+# Example Terraform variables file
+# Copy to terraform.tfvars and update with your values
+
+project_id         = "your-gcp-project-id"
+region            = "us-central1"
+zone              = "us-central1-a"
+environment       = "prod"
+
+# Database configuration
+db_instance_tier     = "db-custom-1-3840"  # 1 vCPU, 3.75GB RAM
+redis_memory_size_gb = 2
+
+# Container image (update after building and pushing)
+container_image = "us-central1-docker.pkg.dev/your-project/event-stream-engine-prod-containers/event-stream-engine:v4.1.0"
+
+# Twilio configuration
+twilio_phone_number = "whatsapp:+14155552671"
+twilio_account_sid  = ""  # Will be prompted during deployment
+twilio_auth_token   = ""  # Will be prompted during deployment
+
+# Scaling configuration
+min_web_instances = 1
+max_web_instances = 10
+
+# Safety configuration
+enable_deletion_protection = true
+
+# Optional custom domain
+domain_name = ""
