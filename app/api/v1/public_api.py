@@ -628,8 +628,8 @@ def bulk_ingest_users_endpoint():
                 400,
             )
 
-        # Use app directory for uploads (shared between containers)
-        upload_dir = "/app/uploads"
+        # Use shared volume for uploads (mounted at /tmp/uploads in containers)
+        upload_dir = "/tmp/uploads"
         os.makedirs(upload_dir, mode=0o755, exist_ok=True)
 
         # Save file with unique name

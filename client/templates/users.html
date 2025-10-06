@@ -152,7 +152,7 @@ phone_e164,consent_state,name,location,product_interest
     <h2>🔗 API Integration</h2>
     <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <a href="/api/v1/users" target="_blank" class="btn btn-info">📊 View Users API</a>
-        <a href="/api/v1/users/bulk" target="_blank" class="btn btn-info">📤 Bulk Upload API</a>
+        <a href="/api/v1/ingest/users/bulk" target="_blank" class="btn btn-info">📤 Bulk Upload API</a>
     </div>
 </div>
 {% endblock %}
@@ -190,7 +190,7 @@ phone_e164,consent_state,name,location,product_interest
             }, 200);
             
             try {
-                const response = await fetch('/api/v1/users/bulk', {
+                const response = await fetch('/api/v1/ingest/users/bulk', {
                     method: 'POST',
                     body: formData
                 });
