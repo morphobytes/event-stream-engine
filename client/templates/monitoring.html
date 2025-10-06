@@ -74,25 +74,31 @@
                 </thead>
                 <tbody>
                     {% for event in inbound_events %}
-                    <tr>
+                                        <tr>
                         <td>{{ event.received_at.strftime('%H:%M:%S') if event.received_at else 'N/A' }}</td>
                         <td>
-                            <code onclick="utils.copyToClipboard('{{ event.user_phone }}')" style="cursor: pointer;">
-                                {{ event.user_phone }}
+                            <code style="font-family: monospace; background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">
+                                {{ event.masked_phone if event.masked_phone else '****' }}
                             </code>
                         </td>
                         <td style="max-width: 200px;">
-                            {% if event.message_body %}
-                                <div style="white-space: pre-wrap; font-size: 13px;">{{ event.message_body[:100] }}{% if event.message_body|length > 100 %}...{% endif %}</div>
-                            {% else %}
-                                <em style="color: #666;">Media message</em>
+                            {% set msg_class = event.message_classification or 'Text Reply' %}
+                            <span class="status 
+                                {%- if 'STOP' in msg_class %} status-failed
+                                {%- elif 'Media' in msg_class %} status-info
+                                {%- else %} status-delivered
+                                {%- endif %}">
+                                {{ msg_class }}
+                            </span>
+                            {% if 'STOP' in msg_class %}
+                                <small style="color: #dc3545; display: block; margin-top: 2px;">→ User Opted Out</small>
                             {% endif %}
                         </td>
                         <td>
                             <span class="status status-delivered">{{ event.channel_type.upper() }}</span>
                         </td>
                         <td>
-                            <code style="font-size: 11px;">{{ event.provider_sid[:20] }}...</code>
+                            <span style="font-size: 11px; color: #28a745;">✅ Webhook</span>
                         </td>
                         <td>
                             <span class="status status-delivered">✅ Processed</span>
@@ -120,8 +126,8 @@
 <div class="card">
     <h2>🔍 Message Analysis</h2>
     {% if inbound_events %}
-        {% set stop_keywords = inbound_events | selectattr('normalized_body', 'defined') | selectattr('normalized_body', 'in', ['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit']) | list %}
-        {% set media_messages = inbound_events | selectattr('message_body', 'none') | list %}
+        {% set stop_commands = inbound_events | selectattr('message_classification', 'defined') | selectattr('message_classification', 'containing', 'STOP') | list %}
+        {% set media_messages = inbound_events | selectattr('message_classification', 'defined') | selectattr('message_classification', 'containing', 'Media') | list %}
         
         <div class="stats-grid">
             <div class="stat-card">
@@ -129,7 +135,7 @@
                 <div class="stat-label">Total Messages</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ stop_keywords|length }}</div>
+                <div class="stat-number">{{ stop_commands|length }}</div>
                 <div class="stat-label">Opt-out Requests</div>
             </div>
             <div class="stat-card">
@@ -137,14 +143,14 @@
                 <div class="stat-label">Media Messages</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ (inbound_events|length - stop_keywords|length - media_messages|length) }}</div>
+                <div class="stat-number">{{ (inbound_events|length - stop_commands|length - media_messages|length) }}</div>
                 <div class="stat-label">Regular Replies</div>
             </div>
         </div>
         
-        {% if stop_keywords %}
+        {% if stop_commands %}
         <div class="alert alert-info">
-            <strong>📢 Compliance Alert:</strong> {{ stop_keywords|length }} users have requested to opt out. 
+            <strong>📢 Compliance Alert:</strong> {{ stop_commands|length }} users have requested to opt out. 
             These have been automatically processed by our compliance engine.
         </div>
         {% endif %}
@@ -253,9 +259,9 @@
                     <tr>
                         <th>Time</th>
                         <th>From</th>
-                        <th>Message</th>
+                        <th>Message Type</th>
                         <th>Channel</th>
-                        <th>Provider ID</th>
+                        <th>Processing</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -264,28 +270,28 @@
         
         events.forEach(event => {
             const receivedTime = new Date(event.received_at).toLocaleTimeString();
-            const messageBody = event.message_body 
-                ? (event.message_body.length > 100 
-                    ? event.message_body.substring(0, 100) + '...' 
-                    : event.message_body)
-                : '<em style="color: #666;">Media message</em>';
+            const messageClass = event.message_classification || 'Text Reply';
+            const isStopCommand = messageClass.includes('STOP');
+            const statusClass = isStopCommand ? 'status-failed' : 
+                              messageClass.includes('Media') ? 'status-info' : 'status-delivered';
             
             tableHTML += `
                 <tr>
                     <td>${receivedTime}</td>
                     <td>
-                        <code onclick="utils.copyToClipboard('${event.user_phone}')" style="cursor: pointer;">
-                            ${event.user_phone}
+                        <code style="font-family: monospace; background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">
+                            ${event.masked_phone || '****'}
                         </code>
                     </td>
                     <td style="max-width: 200px;">
-                        <div style="white-space: pre-wrap; font-size: 13px;">${messageBody}</div>
+                        <span class="status ${statusClass}">${messageClass}</span>
+                        ${isStopCommand ? '<small style="color: #dc3545; display: block; margin-top: 2px;">→ User Opted Out</small>' : ''}
                     </td>
                     <td>
                         <span class="status status-delivered">${event.channel_type.toUpperCase()}</span>
                     </td>
                     <td>
-                        <code style="font-size: 11px;">${event.provider_sid.substring(0, 20)}...</code>
+                        <span style="font-size: 11px; color: #28a745;">✅ Webhook</span>
                     </td>
                     <td>
                         <span class="status status-delivered">✅ Processed</span>

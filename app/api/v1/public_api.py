@@ -1032,18 +1032,40 @@ def get_recent_inbound_events():
             .all()
         )
 
-        # Format response
+        # Privacy-safe utility functions
+        def mask_phone_number(phone):
+            """Mask phone number showing only last 4 digits"""
+            if not phone or len(phone) < 4:
+                return "****"
+            return "*" * (len(phone) - 4) + phone[-4:]
+        
+        def classify_message(normalized_body):
+            """Classify message content for privacy-safe monitoring"""
+            if not normalized_body:
+                return "Media Message"
+            
+            stop_keywords = ['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 'opt-out']
+            if any(keyword in normalized_body.lower() for keyword in stop_keywords):
+                return "STOP Command"
+            
+            if len(normalized_body.strip()) == 0:
+                return "Empty Message"
+            
+            return "Text Reply"
+
+        # Format response with privacy-safe data
         events = []
         for event in inbound_events:
             events.append(
                 {
                     "event_id": event.id,
-                    "user_phone": event.user_phone,
-                    "from_phone": event.from_phone,
+                    "masked_phone": mask_phone_number(event.from_phone),
+                    "from_phone": event.from_phone,  # Keep for backend processing
                     "channel_type": event.channel_type,
-                    "message_sid": event.message_sid,
+                    "message_classification": classify_message(event.normalized_body),
                     "received_at": event.processed_at,
                     "processed": True,  # Assuming all stored events are processed
+                    # Include normalized_body for backend processing but not display
                     "normalized_body": event.normalized_body,
                 }
             )
