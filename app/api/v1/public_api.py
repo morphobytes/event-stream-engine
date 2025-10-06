@@ -542,6 +542,40 @@ def create_campaign():
         )
 
 
+@api_v1.route("/campaigns/<int:campaign_id>", methods=["GET"])
+def get_campaign(campaign_id):
+    """
+    Get a specific campaign by ID
+    Endpoint: GET /api/v1/campaigns/{campaign_id}
+    """
+    try:
+        campaign = Campaign.query.get(campaign_id)
+        if not campaign:
+            return handle_not_found("Campaign", campaign_id)
+
+        # Include template data if available
+        template_response = (
+            TemplateResponse.from_orm(campaign.template)
+            if campaign.template
+            else None
+        )
+        
+        campaign_dict = CampaignResponse.from_orm(campaign).dict()
+        campaign_dict["template"] = (
+            template_response.dict() if template_response else None
+        )
+
+        return jsonify(campaign_dict), 200
+
+    except Exception as e:
+        return (
+            jsonify(
+                ErrorResponse(error="Internal Server Error", message=str(e)).dict()
+            ),
+            500,
+        )
+
+
 @api_v1.route("/campaigns/<int:campaign_id>", methods=["PUT"])
 def update_campaign(campaign_id):
     """Update campaign rules, schedule, or status"""
