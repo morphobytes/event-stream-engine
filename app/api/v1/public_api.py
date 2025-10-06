@@ -81,15 +81,22 @@ def handle_validation_error(error: ValidationError) -> Tuple[Any, int]:
     Returns:
         Tuple[Any, int]: JSON response and HTTP status code
     """
+    # Convert Pydantic error list to dict format expected by ValidationErrorResponse
+    field_errors = {}
+    if hasattr(error, "errors"):
+        for err in error.errors():
+            field_name = ".".join(str(loc) for loc in err["loc"])
+            if field_name not in field_errors:
+                field_errors[field_name] = []
+            field_errors[field_name].append(err["msg"])
+    else:
+        field_errors = {"general": [str(error)]}
+    
     return (
         jsonify(
             ValidationErrorResponse(
                 message="Invalid input data",
-                field_errors=(
-                    error.errors()
-                    if hasattr(error, "errors")
-                    else {"general": [str(error)]}
-                ),
+                field_errors=field_errors,
             ).dict()
         ),
         400,

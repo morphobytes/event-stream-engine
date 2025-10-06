@@ -108,9 +108,9 @@ def users():
 def campaigns():
     """Campaign management page"""
     try:
-        # Get campaigns and templates directly from database to avoid circular requests
+        # Get campaigns, templates, and segments from database to avoid circular requests
         from flask import current_app
-        from app.core.data_model import Campaign, Template
+        from app.core.data_model import Campaign, Template, Segment
         
         with current_app.app_context():
             # Get campaigns from database
@@ -118,12 +118,16 @@ def campaigns():
             
             # Get templates from database
             templates_list = Template.query.order_by(Template.created_at.desc()).all()
+            
+            # Get segments from database
+            segments_list = Segment.query.order_by(Segment.created_at.desc()).all()
 
         return render_template(
             "campaigns.html",
             active_tab="campaigns",
             campaigns=campaigns_list,
             templates=templates_list,
+            segments=segments_list,
         )
     except Exception as e:
         # Provide fallback HTML if template fails

@@ -27,6 +27,26 @@
             <small style="color: #e74c3c;">No templates available. Create a template first via API.</small>
             {% endif %}
         </div>
+
+        <div class="form-group">
+            <label for="target_segment">Target Recipients</label>
+            <select id="target_segment" name="target_segment_id" class="form-control">
+                <option value="">All opted-in users</option>
+                {% for segment in segments %}
+                <option value="{{ segment.id }}" title="{{ segment.definition_json }}">
+                    {{ segment.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <small>Choose a segment to target specific users, or leave blank for all opted-in users</small>
+            {% set has_colombo_segment = segments | selectattr('name', 'in', ['Colombo Users', 'colombo_users']) | list | length > 0 %}
+            <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="btn btn-info btn-sm" onclick="createUserSegment()">
+                    ➕ Add Recipients Segment
+                </button>
+                <div id="segment-creation-status" style="margin-left: 10px;"></div>
+            </div>
+        </div>
         
         <div class="form-group">
             <label for="schedule_time">Schedule Time (Optional)</label>
@@ -278,5 +298,184 @@
         
         window.app.showAlert(preview, 'info');
     }
+
+    // User segment creation with dynamic messaging
+    window.createUserSegment = async function() {
+        const statusDiv = document.getElementById('segment-creation-status');
+        
+        // Show segment creation options with better UX
+        const segmentType = prompt(`🎯 Create Recipients Segment
+
+Choose segment type:
+1. Colombo Users (city = 'Colombo') - Recommended for Campaign-A
+2. Custom City Segment 
+3. Custom Advanced Segment
+
+Enter 1, 2, or 3 (or click Cancel to abort):`, '1');
+        
+        // Handle cancellation more gracefully
+        if (segmentType === null) {
+            statusDiv.innerHTML = '<small style="color: #6c757d;">ℹ️ Segment creation cancelled by user</small>';
+            setTimeout(() => statusDiv.innerHTML = '', 2000);
+            return;
+        }
+        
+        if (!['1', '2', '3'].includes(segmentType.trim())) {
+            statusDiv.innerHTML = '<small style="color: #e74c3c;">❌ Invalid option. Please enter 1, 2, or 3</small>';
+            setTimeout(() => statusDiv.innerHTML = '', 3000);
+            return;
+        }
+        
+        let segmentName, definition;
+        
+        if (segmentType === '1') {
+            // Colombo Users segment - using complex format for multiple conditions
+            segmentName = 'Colombo Users';
+            definition = {
+                conditions: [
+                    {
+                        attribute: 'city',
+                        operator: 'equals',
+                        value: 'Colombo'
+                    },
+                    {
+                        attribute: 'consent_state',
+                        operator: 'equals',
+                        value: 'OPT_IN'
+                    }
+                ],
+                logic: 'AND'
+            };
+        } else if (segmentType === '2') {
+            // Custom city segment
+            const city = prompt('🏙️ Enter target city name:', 'Colombo');
+            if (city === null) {
+                statusDiv.innerHTML = '<small style="color: #6c757d;">ℹ️ Segment creation cancelled by user</small>';
+                setTimeout(() => statusDiv.innerHTML = '', 2000);
+                return;
+            }
+            if (!city.trim()) {
+                statusDiv.innerHTML = '<small style="color: #e74c3c;">❌ City name cannot be empty</small>';
+                setTimeout(() => statusDiv.innerHTML = '', 3000);
+                return;
+            }
+            segmentName = `${city.trim()} Users`;
+            definition = {
+                conditions: [
+                    {
+                        attribute: 'city',
+                        operator: 'equals',
+                        value: city.trim()
+                    },
+                    {
+                        attribute: 'consent_state',
+                        operator: 'equals',
+                        value: 'OPT_IN'
+                    }
+                ],
+                logic: 'AND'
+            };
+        } else {
+            // Advanced custom segment
+            segmentName = prompt('📝 Enter segment name:', 'Custom Segment');
+            if (segmentName === null) {
+                statusDiv.innerHTML = '<small style="color: #6c757d;">ℹ️ Segment creation cancelled by user</small>';
+                setTimeout(() => statusDiv.innerHTML = '', 2000);
+                return;
+            }
+            if (!segmentName.trim()) {
+                statusDiv.innerHTML = '<small style="color: #e74c3c;">❌ Segment name cannot be empty</small>';
+                setTimeout(() => statusDiv.innerHTML = '', 3000);
+                return;
+            }
+            
+            const attribute = prompt('🔧 Enter attribute name (e.g., city, product_interest):', 'city');
+            if (attribute === null) {
+                statusDiv.innerHTML = '<small style="color: #6c757d;">ℹ️ Segment creation cancelled by user</small>';
+                setTimeout(() => statusDiv.innerHTML = '', 2000);
+                return;
+            }
+            
+            const value = prompt(`📋 Enter value for ${attribute}:`, 'Colombo');
+            if (value === null) {
+                statusDiv.innerHTML = '<small style="color: #6c757d;">ℹ️ Segment creation cancelled by user</small>';
+                setTimeout(() => statusDiv.innerHTML = '', 2000);
+                return;
+            }
+            
+            if (!attribute.trim() || !value.trim()) {
+                statusDiv.innerHTML = '<small style="color: #e74c3c;">❌ Both attribute name and value are required</small>';
+                setTimeout(() => statusDiv.innerHTML = '', 3000);
+                return;
+            }
+            
+            // Ask if they want to add consent filter
+            const addConsent = confirm('Add consent filter (OPT_IN users only)?');
+            
+            if (addConsent) {
+                definition = {
+                    conditions: [
+                        {
+                            attribute: attribute.trim(),
+                            operator: 'equals',
+                            value: value.trim()
+                        },
+                        {
+                            attribute: 'consent_state',
+                            operator: 'equals',
+                            value: 'OPT_IN'
+                        }
+                    ],
+                    logic: 'AND'
+                };
+            } else {
+                // Simple format for single condition
+                definition = {
+                    attribute: attribute.trim(),
+                    operator: 'equals',
+                    value: value.trim()
+                };
+            }
+        }
+        
+        // Show creating status
+        statusDiv.innerHTML = '<small style="color: #007bff;">🔄 Creating segment...</small>';
+        
+        try {
+            const response = await fetch('/api/v1/segments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: segmentName,
+                    definition_json: definition
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok) {
+                // Add the new segment to the dropdown
+                const segmentSelect = document.getElementById('target_segment');
+                const option = document.createElement('option');
+                option.value = result.id;
+                option.textContent = result.name;
+                option.selected = true;
+                segmentSelect.appendChild(option);
+                
+                statusDiv.innerHTML = `<small style="color: #28a745;">✅ "${segmentName}" created and selected!</small>`;
+                setTimeout(() => statusDiv.innerHTML = '', 5000);
+                
+                window.app.showAlert(`✅ Segment "${segmentName}" created successfully!`, 'success');
+            } else {
+                statusDiv.innerHTML = `<small style="color: #e74c3c;">❌ Error: ${result.message || 'Creation failed'}</small>`;
+                setTimeout(() => statusDiv.innerHTML = '', 5000);
+            }
+        } catch (error) {
+            statusDiv.innerHTML = `<small style="color: #e74c3c;">❌ Network error: ${error.message}</small>`;
+            setTimeout(() => statusDiv.innerHTML = '', 5000);
+        }
+    };
 </script>
 {% endblock %}
