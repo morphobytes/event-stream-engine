@@ -790,7 +790,7 @@ def get_message_status(message_id):
         message_query = (
             db.session.query(Message, DeliveryReceipt)
             .outerjoin(
-                DeliveryReceipt, Message.provider_sid == DeliveryReceipt.provider_sid
+                DeliveryReceipt, Message.provider_sid == DeliveryReceipt.message_sid
             )
             .filter(Message.id == message_id)
         )
@@ -910,7 +910,7 @@ def get_campaign_summary(campaign_id):
                     func.case((DeliveryReceipt.message_status == "read", 1), else_=0)
                 ).label("read"),
             )
-            .join(Message, Message.provider_sid == DeliveryReceipt.provider_sid)
+            .join(Message, Message.provider_sid == DeliveryReceipt.message_sid)
             .filter(Message.campaign_id == campaign_id)
             .first()
         )
@@ -1026,8 +1026,8 @@ def get_recent_inbound_events():
 
         # Query recent inbound events
         inbound_events = (
-            InboundEvent.query.filter(InboundEvent.received_at >= time_threshold)
-            .order_by(desc(InboundEvent.received_at))
+            InboundEvent.query.filter(InboundEvent.processed_at >= time_threshold)
+            .order_by(desc(InboundEvent.processed_at))
             .limit(limit)
             .all()
         )
@@ -1043,7 +1043,7 @@ def get_recent_inbound_events():
                     "media_url": event.media_url,
                     "channel_type": event.channel_type,
                     "provider_sid": event.provider_sid,
-                    "received_at": event.received_at,
+                    "received_at": event.processed_at,
                     "processed": True,  # Assuming all stored events are processed
                     "normalized_body": event.normalized_body,
                 }
@@ -1102,7 +1102,7 @@ def get_reporting_dashboard():
 
         # Recent activity (24h) - optimized queries
         recent_inbound = InboundEvent.query.filter(
-            InboundEvent.received_at >= day_ago
+            InboundEvent.processed_at >= day_ago
         ).count()
 
         # Message metrics with single query
@@ -1121,7 +1121,7 @@ def get_reporting_dashboard():
         # Get delivered count via delivery receipts
         messages_delivered_24h = (
             db.session.query(func.count(DeliveryReceipt.id))
-            .join(Message, Message.provider_sid == DeliveryReceipt.provider_sid)
+            .join(Message, Message.provider_sid == DeliveryReceipt.message_sid)
             .filter(
                 Message.created_at >= day_ago,
                 DeliveryReceipt.message_status == "delivered",
@@ -1136,7 +1136,7 @@ def get_reporting_dashboard():
         ).count()
         total_delivered = (
             db.session.query(func.count(DeliveryReceipt.id))
-            .join(Message, Message.provider_sid == DeliveryReceipt.provider_sid)
+            .join(Message, Message.provider_sid == DeliveryReceipt.message_sid)
             .filter(DeliveryReceipt.message_status == "delivered")
             .scalar()
             or 0
