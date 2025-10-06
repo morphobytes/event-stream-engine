@@ -135,7 +135,7 @@
                 <div class="stat-label">Total Messages</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ stop_commands|length }}</div>
+                <div class="stat-number">{{ metrics.opted_out_users if metrics else 0 }}</div>
                 <div class="stat-label">Opt-out Requests</div>
             </div>
             <div class="stat-card">

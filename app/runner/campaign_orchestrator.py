@@ -6,16 +6,7 @@ Handles the complete campaign execution pipeline with compliance and auditing
 import re
 from datetime import datetime
 from typing import List, Dict, Any
-from app.main import db, create_app
-
-
-# Import the celery app instance
-def get_celery_app():
-    """Get the celery app instance"""
-    from app.main import celery_app
-
-    return celery_app
-
+from app.main import db, create_app, celery_app
 
 from app.core.data_model import (
     User,
@@ -216,10 +207,7 @@ def run_campaign_task(self, campaign_id: int):
                     message = Message(
                         campaign_id=campaign.id,
                         phone_number=user.phone_number,
-                        template_id=template.id,
-                        rendered_content=rendered_content,
                         status=MessageStatus.QUEUED,
-                        channel=template.channel,
                     )
 
                     db.session.add(message)
@@ -245,8 +233,8 @@ def run_campaign_task(self, campaign_id: int):
 
                     else:
                         message.status = MessageStatus.FAILED
-                        message.error_code = twilio_result["error_code"]
-                        message.error_message = twilio_result["error_message"]
+                        message.error_code = twilio_result.get("error_code")
+                        # Note: error_message field doesn't exist in Message model
                         results["messages_failed"] += 1
 
                         results["errors"].append(
@@ -380,6 +368,9 @@ def resolve_campaign_recipients(campaign: Campaign) -> List[User]:
             elif logic == "OR":
                 query = query.filter(db.or_(*filters))
 
+    # Always filter by consent state - only include users who can receive messages
+    query = query.filter(User.consent_state == ConsentState.OPT_IN)
+    
     return query.all()
 
 

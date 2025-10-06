@@ -104,22 +104,53 @@ def users():
         """, 200
 
 
-@ui.route("/campaigns")
+@ui.route("/campaigns", methods=["GET", "POST"])
 def campaigns():
     """Campaign management page"""
     try:
-        # Get campaigns, templates, and segments from database to avoid circular requests
-        from flask import current_app
-        from app.core.data_model import Campaign, Template, Segment
+        from flask import current_app, request, redirect, url_for, flash
+        from app.core.data_model import Campaign, Template, Segment, CampaignStatus
+        import requests
         
         with current_app.app_context():
-            # Get campaigns from database
+            if request.method == "POST":
+                # Handle campaign creation form submission
+                try:
+                    topic = request.form.get("topic")
+                    template_id = request.form.get("template_id")
+                    segment_id = request.form.get("segment_id")
+                    rate_limit = request.form.get("rate_limit_per_second", 2)
+                    quiet_start = request.form.get("quiet_hours_start")
+                    quiet_end = request.form.get("quiet_hours_end")
+                    
+                    # Create campaign via API
+                    api_data = {
+                        "topic": topic,
+                        "template_id": int(template_id),
+                        "segment_id": int(segment_id) if segment_id else None,
+                        "rate_limit_per_second": int(rate_limit),
+                        "quiet_hours_start": quiet_start if quiet_start else None,
+                        "quiet_hours_end": quiet_end if quiet_end else None
+                    }
+                    
+                    api_response = requests.post(
+                        "http://localhost:8000/api/v1/campaigns",
+                        json=api_data,
+                        timeout=10
+                    )
+                    
+                    if api_response.status_code in [200, 201]:
+                        flash("Campaign created successfully!", "success")
+                        return redirect(url_for("ui.campaigns"))
+                    else:
+                        flash(f"Failed to create campaign: {api_response.text}", "error")
+                        
+                except Exception as e:
+                    flash(f"Error creating campaign: {str(e)}", "error")
+            
+            # GET request or after POST - show campaigns page
             campaigns_list = Campaign.query.order_by(Campaign.created_at.desc()).all()
-            
-            # Get templates from database
             templates_list = Template.query.order_by(Template.created_at.desc()).all()
-            
-            # Get segments from database
             segments_list = Segment.query.order_by(Segment.created_at.desc()).all()
 
         return render_template(
@@ -148,12 +179,12 @@ def campaigns():
 def monitoring():
     """Monitoring and inbound events page"""
     try:
-        # Get recent inbound events directly from database to avoid circular requests
+        import requests
         from flask import current_app
         from app.core.data_model import InboundEvent
         
         with current_app.app_context():
-            # Get recent inbound events
+            # Get recent inbound events from database
             recent_events = InboundEvent.query.order_by(InboundEvent.processed_at.desc()).limit(50).all()
             
             events_list = []
@@ -168,6 +199,16 @@ def monitoring():
                     'processed_at': event.processed_at.isoformat() if event.processed_at else None
                 })
             
+            # Get system metrics from API
+            try:
+                api_response = requests.get("http://localhost:8000/api/v1/monitoring", timeout=5)
+                if api_response.status_code == 200:
+                    metrics_data = api_response.json()
+                else:
+                    metrics_data = {"opted_out_users": 0, "total_users": 0}
+            except:
+                metrics_data = {"opted_out_users": 0, "total_users": 0}
+            
             # Mock campaign summaries for now
             campaign_summaries = []
 
@@ -176,6 +217,7 @@ def monitoring():
             active_tab="monitoring",
             inbound_events=events_list,
             campaign_summaries=campaign_summaries,
+            metrics=metrics_data,
         )
     except Exception as e:
         # Log the actual error for debugging

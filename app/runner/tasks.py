@@ -666,10 +666,7 @@ def run_campaign_task(self, campaign_id: int):
                     message = Message(
                         phone_number=user.phone_number,
                         campaign_id=campaign.id,
-                        template_id=template.id,
-                        rendered_content=rendered_content,
                         status=MessageStatus.QUEUED,
-                        channel=template.channel,
                     )
 
                     db.session.add(message)

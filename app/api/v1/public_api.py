@@ -8,9 +8,13 @@ from sqlalchemy.exc import IntegrityError
 from pydantic import ValidationError
 import os
 import uuid
+import logging
 from typing import Dict, Any, Tuple
 from werkzeug.utils import secure_filename
 from app.main import db
+
+# Configure logging
+logger = logging.getLogger(__name__)
 from app.core.data_model import (
     User,
     Campaign,
@@ -1146,6 +1150,45 @@ def get_campaign_summary(campaign_id):
             ),
             500,
         )
+
+
+@api_v1.route("/monitoring", methods=["GET"])
+def get_monitoring_overview():
+    """
+    Get system monitoring overview including user consent metrics
+    
+    Returns:
+        JSON response with monitoring metrics
+    """
+    try:
+        from sqlalchemy import func, case
+        
+        # User metrics with consent state breakdown
+        user_stats = db.session.query(
+            func.count(User.phone_number).label("total_users"),
+            func.sum(
+                case((User.consent_state.in_(["OPT_OUT", "STOP"]), 1), else_=0)
+            ).label("opted_out_users"),
+        ).first()
+        
+        total_users = user_stats.total_users or 0
+        opted_out_users = user_stats.opted_out_users or 0
+        
+        return jsonify({
+            "total_users": total_users,
+            "opted_out_users": opted_out_users,
+            "active_users": total_users - opted_out_users,
+            "timestamp": datetime.utcnow().isoformat(),
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting monitoring overview: {str(e)}")
+        return jsonify({
+            "error": "Failed to get monitoring data",
+            "total_users": 0,
+            "opted_out_users": 0,
+            "active_users": 0,
+        }), 500
 
 
 @api_v1.route("/monitoring/inbound", methods=["GET"])
