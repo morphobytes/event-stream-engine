@@ -16,7 +16,7 @@
                 ">
                     {{ summary.campaign_status }}
                 </span>
-                • Last Updated: {{ summary.last_updated.strftime('%Y-%m-%d %H:%M:%S') if summary.last_updated else 'N/A' }}
+                • Last Updated: {{ summary.last_updated if summary.last_updated else 'N/A' }}
             </p>
         </div>
         <div>
@@ -111,11 +111,11 @@
             <table style="width: 100%; border-collapse: separate; border-spacing: 0 8px;">
                 <tr>
                     <td style="font-weight: 600; color: #666;">Started:</td>
-                    <td>{{ summary.campaign_started_at.strftime('%Y-%m-%d %H:%M:%S') if summary.campaign_started_at else 'Not started' }}</td>
+                    <td>{{ summary.campaign_started_at if summary.campaign_started_at else 'Not started' }}</td>
                 </tr>
                 <tr>
                     <td style="font-weight: 600; color: #666;">Completed:</td>
-                    <td>{{ summary.campaign_completed_at.strftime('%Y-%m-%d %H:%M:%S') if summary.campaign_completed_at else 'Not completed' }}</td>
+                    <td>{{ summary.campaign_completed_at if summary.campaign_completed_at else 'Not completed' }}</td>
                 </tr>
                 <tr>
                     <td style="font-weight: 600; color: #666;">Duration:</td>

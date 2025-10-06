@@ -3,7 +3,7 @@ UI Blueprint for Event Stream Engine Web Interface
 Provides minimal web UI for demonstrating the platform capabilities
 """
 
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, flash
 import json
 from datetime import datetime
 
@@ -200,19 +200,33 @@ def monitoring():
 def campaign_summary(campaign_id):
     """Detailed campaign summary page"""
     try:
-        # Get campaign summary directly from database to avoid circular requests
+        # Get campaign summary from internal API call
+        from app.api.v1.public_api import get_campaign_summary
         from flask import current_app
         
-        with current_app.app_context():
-            # Mock summary data for now since Campaign model might not be fully implemented
-            summary_data = {
-                "campaign_id": campaign_id,
-                "name": f"Campaign {campaign_id}",
-                "status": "completed",
-                "total_recipients": 0,
-                "messages_sent": 0,
-                "delivery_rate": 0.0
-            }
+        with current_app.test_request_context():
+            api_response = get_campaign_summary(campaign_id)
+            
+            # Extract data from API response
+            if api_response[1] == 200:  # HTTP 200 OK
+                response_data = api_response[0].get_json()
+                summary_data = response_data
+            else:
+                # Handle API error - use fallback data
+                summary_data = {
+                    "campaign_id": campaign_id,
+                    "campaign_topic": f"Campaign {campaign_id}",
+                    "campaign_status": "unknown",
+                    "total_recipients": 0,
+                    "messages_sent": 0,
+                    "messages_delivered": 0,
+                    "messages_failed": 0,
+                    "success_rate_percent": 0.0,
+                    "delivery_rate_percent": 0.0,
+                    "quiet_hours_skipped": 0,
+                    "rate_limit_skipped": 0,
+                    "opt_outs_during_campaign": 0
+                }
 
         return render_template("campaign_summary.html", summary=summary_data)
     except Exception as e:
