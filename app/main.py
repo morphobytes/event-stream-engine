@@ -129,6 +129,19 @@ def create_app() -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
 
+    # Import models to ensure they're registered with SQLAlchemy for migrations
+    from app.core import data_model
+
+    # Add custom template filters
+    @app.template_filter('tojsonpretty')
+    def to_json_pretty(value):
+        """Convert dict to pretty JSON string for template display"""
+        import json
+        try:
+            return json.dumps(value, indent=2, ensure_ascii=False)
+        except:
+            return str(value)
+
     # Register API blueprints
     from app.api.v1.public_api import api_v1
 
@@ -144,13 +157,7 @@ def create_app() -> Flask:
     def health_check():
         return {"status": "healthy", "service": "event-stream-engine"}, 200
 
-    @app.route("/")
-    def index():
-        return {
-            "message": "Event Stream Engine API",
-            "version": "1.0.0",
-            "status": "ready",
-        }, 200
+    # Root route handled by UI blueprint
 
     @app.route("/webhooks/inbound", methods=["POST"])
     def inbound_webhook():

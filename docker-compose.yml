@@ -7,7 +7,7 @@ services:
       context: .
       target: runtime  # Use the lightweight production stage
     container_name: messaging-web
-    command: gunicorn --bind 0.0.0.0:8000 app.main:app  # Production web server
+    command: gunicorn --bind 0.0.0.0:8000 "app.main:create_app()"  # Production web server with factory
     volumes:
       - .:/app  # Mount current directory for live code changes
       - uploads:/tmp/uploads  # Shared volume for file uploads
@@ -15,12 +15,14 @@ services:
       - "8000:8000"
     env_file:
       - .env.dev
+    environment:
+      - FLASK_APP=app.main:create_app
     depends_on:
       - db
       - redis
     # Healthcheck is vital for E2E testing dependency management
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -37,6 +39,8 @@ services:
     command: celery -A app.main.celery_app worker --loglevel=INFO --pool=solo
     env_file:
       - .env.dev
+    environment:
+      - FLASK_APP=app.main:create_app
     volumes:
       - .:/app
       - uploads:/tmp/uploads  # Shared volume for file uploads
@@ -56,6 +60,8 @@ services:
     command: celery -A app.main.celery_app beat --loglevel=INFO
     env_file:
       - .env.dev
+    environment:
+      - FLASK_APP=app.main:create_app
     volumes:
       - .:/app
     depends_on:
