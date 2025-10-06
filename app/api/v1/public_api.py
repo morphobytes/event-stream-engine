@@ -503,10 +503,17 @@ def create_campaign():
         if not template:
             return handle_not_found("Template", campaign_data.template_id)
 
+        # Verify segment exists if provided
+        if campaign_data.segment_id:
+            segment = Segment.query.get(campaign_data.segment_id)
+            if not segment:
+                return handle_not_found("Segment", campaign_data.segment_id)
+
         # Create new campaign
         new_campaign = Campaign(
             topic=campaign_data.topic,
             template_id=campaign_data.template_id,
+            segment_id=campaign_data.segment_id,
             status=campaign_data.status.value,
             rate_limit_per_second=campaign_data.rate_limit_per_second,
             quiet_hours_start=campaign_data.quiet_hours_start,
@@ -591,6 +598,8 @@ def update_campaign(campaign_id):
         # Update fields
         if update_data.status is not None:
             campaign.status = update_data.status.value
+        if update_data.segment_id is not None:
+            campaign.segment_id = update_data.segment_id
         if update_data.rate_limit_per_second is not None:
             campaign.rate_limit_per_second = update_data.rate_limit_per_second
         if update_data.quiet_hours_start is not None:
@@ -647,7 +656,7 @@ def trigger_campaign(campaign_id):
                         error="Invalid State",
                         message=(
                             f"Campaign must be in READY or DRAFT state to trigger "
-                            f"(current: {campaign.status.value})"
+                            f"(current: {campaign.status})"
                         ),
                     ).dict()
                 ),
@@ -670,11 +679,9 @@ def trigger_campaign(campaign_id):
         if not trigger_data.dry_run:
             from app.runner.tasks import trigger_campaign_execution
 
-            # Trigger campaign execution
+            # Trigger campaign execution - let the task handle status changes
             execution_result = trigger_campaign_execution.delay(campaign_id)
-
             execution_task_id = execution_result.id
-            campaign.status = "RUNNING"
         else:
             execution_task_id = None
             # Dry run - don't change status

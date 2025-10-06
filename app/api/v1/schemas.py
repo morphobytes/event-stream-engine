@@ -145,6 +145,7 @@ class SegmentResponse(SegmentBase):
 class CampaignBase(BaseModel):
     topic: str = Field(..., min_length=1, max_length=100, description="Campaign topic")
     template_id: int = Field(..., description="ID of the template to use")
+    segment_id: Optional[int] = Field(None, description="ID of the target segment")
     status: CampaignStatusEnum = Field(
         default=CampaignStatusEnum.DRAFT, description="Campaign status"
     )
@@ -170,6 +171,7 @@ class CampaignCreate(CampaignBase):
 
 class CampaignUpdate(BaseModel):
     status: Optional[CampaignStatusEnum] = None
+    segment_id: Optional[int] = None
     rate_limit_per_second: Optional[int] = Field(None, ge=1, le=1000)
     quiet_hours_start: Optional[str] = Field(
         None, pattern=r"^([01]?[0-9]|2[0-3]):[0-5][0-9]$"

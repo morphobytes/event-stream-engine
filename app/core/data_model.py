@@ -222,6 +222,10 @@ class Campaign(db.Model):
     template_id = Column(Integer, ForeignKey("templates.id"), nullable=False)
     template = relationship("Template")
 
+    # Foreign Key to the target segment
+    segment_id = Column(Integer, ForeignKey("segments.id"), nullable=True)
+    segment = relationship("Segment")
+
     schedule_time = Column(DateTime, comment="Scheduled time for the campaign launch.")
     status = Column(
         String(50),
