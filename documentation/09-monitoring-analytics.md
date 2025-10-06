@@ -458,16 +458,16 @@ ORDER BY delivery_rate DESC;
 -- User journey analysis
 WITH user_journey AS (
     SELECT 
-        u.phone_e164,
+        u.phone_number,
         u.created_at as signup_date,
         COUNT(m.id) as messages_received,
         COUNT(ie.id) as responses_sent,
         u.consent_state
     FROM users u
-    LEFT JOIN messages m ON u.phone_e164 = m.recipient_phone
-    LEFT JOIN inbound_events ie ON u.phone_e164 = ie.from_phone
+    LEFT JOIN messages m ON u.phone_number = m.phone_number
+    LEFT JOIN inbound_events ie ON u.phone_number = ie.from_phone
     WHERE u.created_at >= CURRENT_DATE - INTERVAL '90 days'
-    GROUP BY u.phone_e164, u.created_at, u.consent_state
+    GROUP BY u.phone_number, u.created_at, u.consent_state
 )
 SELECT 
     consent_state,

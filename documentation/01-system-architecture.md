@@ -44,7 +44,7 @@ The Event Stream Engine is a **production-grade, event-driven messaging platform
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │    User     │────▶│   Message   │────▶│ Delivery    │
 │             │     │             │     │  Receipt    │
-│ phone_e164* │     │ campaign_id │     │ message_sid │
+│ phone_number* │   │ campaign_id │     │ message_sid │
 │ attributes  │     │ status      │     │ status      │
 │ consent     │     │ provider_sid│     │ error_code  │
 └─────────────┘     └─────────────┘     └─────────────┘
@@ -68,7 +68,7 @@ The Event Stream Engine is a **production-grade, event-driven messaging platform
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │Subscription │     │  Segment    │     │  Inbound    │
 │             │     │             │     │  Event      │
-│ user_phone  │     │ name        │     │ from_phone  │
+│ phone_number│     │ name        │     │ from_phone  │
 │ topic       │     │definition   │     │ raw_payload │
 └─────────────┘     └─────────────┘     └─────────────┘
 ```
@@ -78,7 +78,7 @@ The Event Stream Engine is a **production-grade, event-driven messaging platform
 #### **1. Users Table - Primary Entity**
 ```sql
 CREATE TABLE users (
-    phone_e164 VARCHAR(16) PRIMARY KEY,  -- E.164 format: +1234567890
+    phone_number VARCHAR(16) PRIMARY KEY,  -- E.164 format: +1234567890
     attributes JSONB DEFAULT '{}',  -- Flexible user data: {"name": "John", "city": "NYC"}
     consent_state VARCHAR(20) DEFAULT 'OPT_IN',  -- OPT_IN, OPT_OUT, STOP
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

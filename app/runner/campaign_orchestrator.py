@@ -166,14 +166,14 @@ def run_campaign_task(self, campaign_id: int):
                     if user.consent_state != ConsentState.OPT_IN:
                         results["skipped_reasons"]["opt_out"] += 1
                         logger.debug(
-                            f"Skipped user {user.phone_e164}: consent state = {user.consent_state}"
+                            f"Skipped user {user.phone_number}: consent state = {user.consent_state}"
                         )
                         continue
 
                     # Compliance Check: Quiet Hours
                     if is_in_quiet_hours(campaign, user):
                         results["skipped_reasons"]["quiet_hours"] += 1
-                        logger.debug(f"Skipped user {user.phone_e164}: quiet hours")
+                        logger.debug(f"Skipped user {user.phone_number}: quiet hours")
                         continue
 
                     # Rate Limit Check
@@ -212,9 +212,10 @@ def run_campaign_task(self, campaign_id: int):
                         continue
 
                     # Message Materialization - Create Message record BEFORE API call
+                    # Create Message record
                     message = Message(
-                        user_phone=user.phone_e164,
                         campaign_id=campaign.id,
+                        phone_number=user.phone_number,
                         template_id=template.id,
                         rendered_content=rendered_content,
                         status=MessageStatus.QUEUED,
@@ -226,7 +227,7 @@ def run_campaign_task(self, campaign_id: int):
 
                     # Twilio API Call
                     twilio_result = twilio_service.send_message(
-                        to_phone=user.phone_e164,
+                        to_phone=user.phone_number,
                         message_content=rendered_content,
                         channel=template.channel,
                     )
@@ -239,7 +240,7 @@ def run_campaign_task(self, campaign_id: int):
                         results["messages_sent"] += 1
 
                         logger.info(
-                            f"Message sent successfully: {user.phone_e164} -> {twilio_result['message_sid']}"
+                            f"Message sent successfully: {user.phone_number} -> {twilio_result['message_sid']}"
                         )
 
                     else:
@@ -257,7 +258,7 @@ def run_campaign_task(self, campaign_id: int):
                         )
 
                         logger.error(
-                            f"Message failed: {user.phone_e164} -> {twilio_result['error_message']}"
+                            f"Message failed: {user.phone_number} -> {twilio_result['error_message']}"
                         )
 
                     # Commit the message record
@@ -266,10 +267,10 @@ def run_campaign_task(self, campaign_id: int):
                 except Exception as recipient_error:
                     db.session.rollback()
                     results["errors"].append(
-                        {"user_phone": user.phone_e164, "error": str(recipient_error)}
+                        {"phone_number": user.phone_number, "error": str(recipient_error)}
                     )
                     logger.error(
-                        f"Error processing recipient {user.phone_e164}: {str(recipient_error)}"
+                        f"Error processing recipient {user.phone_number}: {str(recipient_error)}"
                     )
                     continue
 
@@ -404,8 +405,9 @@ def is_in_quiet_hours(campaign: Campaign, user: User) -> bool:
         logger.warning(f"Invalid quiet hours format for campaign {campaign.id}")
         return False
 
-    # Get current time (using UTC for simplicity, could be enhanced with user timezone)
-    current_time = datetime.utcnow().time()
+    # Get current time using local timezone (host timezone) instead of UTC
+    # This respects the operator's local timezone by default
+    current_time = datetime.now().time()
 
     # Handle overnight quiet hours (e.g., 22:00 to 06:00)
     if start_time > end_time:

@@ -50,8 +50,8 @@ base_config = ConfigDict(
 
 # User schemas
 class UserBase(BaseModel):
-    phone_e164: str = Field(
-        ..., max_length=16, description="E.164 formatted phone number"
+    phone_number: str = Field(
+        ..., description="User phone number in E.164 format (e.g., +1234567890)"
     )
     attributes: Dict[str, Any] = Field(
         default_factory=dict, description="Custom user attributes"
@@ -60,8 +60,8 @@ class UserBase(BaseModel):
         default=ConsentStateEnum.OPT_IN, description="User consent state"
     )
 
-    @validator("phone_e164")
-    def validate_phone_e164(cls, v):
+    @validator("phone_number")
+    def validate_phone_number(cls, v):
         if not re.match(r"^\+[1-9]\d{1,14}$", v):
             raise ValueError("Phone must be in valid E.164 format (+1234567890)")
         return v
@@ -251,7 +251,7 @@ class TriggerEventRequest(BaseModel):
     type: str = Field(..., description="Event type (e.g., 'price_alert', 'welcome')")
     campaign_id: Optional[int] = Field(None, description="Campaign to execute")
     segment_id: Optional[int] = Field(None, description="Target segment filter")
-    user_phone: Optional[str] = Field(None, description="Specific user phone (E.164)")
+    phone_number: Optional[str] = Field(None, description="Specific user phone (E.164)")
     event_data: Dict[str, Any] = Field(
         default_factory=dict, description="Event-specific data"
     )

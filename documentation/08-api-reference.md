@@ -27,7 +27,7 @@ GET /api/v1/users
 {
   "users": [
     {
-      "phone_e164": "+14155551234",
+      "phone_number": "+14155551234",
       "created_at": "2024-01-15T10:30:00Z",
       "consent_state": "OPT_IN",
       "consent_updated_at": "2024-01-15T10:30:00Z",
@@ -76,15 +76,15 @@ POST /api/v1/users
 
 ### **Get User Details**
 ```http
-GET /api/v1/users/{phone_e164}
+GET /api/v1/users/{phone_number}
 ```
 
 **Path Parameters**:
-- `phone_e164`: E.164 formatted phone number (e.g., `+14155551234`)
+- `phone_number`: E.164 formatted phone number (e.g., `+14155551234`)
 
 ### **Update User**
 ```http
-PUT /api/v1/users/{phone_e164}
+PUT /api/v1/users/{phone_number}
 ```
 
 **Request Body**:
@@ -101,7 +101,7 @@ PUT /api/v1/users/{phone_e164}
 
 ### **Delete User**
 ```http
-DELETE /api/v1/users/{phone_e164}
+DELETE /api/v1/users/{phone_number}
 ```
 
 **Response** (200 OK):
@@ -121,7 +121,7 @@ POST /api/v1/users/bulk/upload
 
 **CSV Format Example**:
 ```csv
-phone_e164,name,city,tier,consent_state
+phone_number,name,city,tier,consent_state
 +14155551234,John Doe,San Francisco,premium,OPT_IN
 +14155555678,Jane Smith,Austin,standard,OPT_IN
 ```
@@ -378,7 +378,7 @@ GET /api/v1/reporting/messages/status
   "messages": [
     {
       "id": "message-uuid",
-      "recipient_phone": "+14155551234",
+      "phone_number": "+14155551234",
       "campaign_name": "Welcome Campaign",
       "status": "DELIVERED",
       "sent_at": "2024-01-25T10:15:00Z",
@@ -519,7 +519,7 @@ ErrorCode=
   "error": "validation_error",
   "message": "Invalid phone number format",
   "details": {
-    "field": "phone_e164",
+    "field": "phone_number",
     "provided": "1234567890",
     "expected": "E.164 format (+1234567890)"
   },

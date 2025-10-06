@@ -109,7 +109,7 @@ class User(db.Model):
     __tablename__ = "users"
 
     # Primary Key (PK) - E.164 phone as PK
-    phone_e164 = Column(
+    phone_number = Column(
         String(16),
         primary_key=True,
         comment="User's phone number in E.164 format (PK).",
@@ -144,14 +144,14 @@ class Subscription(db.Model):
     __tablename__ = "subscriptions"
 
     # Composite Primary Key (user_id + topic)
-    user_phone = Column(String(16), ForeignKey("users.phone_e164"), nullable=False)
+    phone_number = Column(String(16), ForeignKey("users.phone_number"), nullable=False)
     topic = Column(
         String(100),
         nullable=False,
         comment="Messaging topic the user is subscribed to.",
     )
 
-    __table_args__ = (PrimaryKeyConstraint("user_phone", "topic"),)
+    __table_args__ = (PrimaryKeyConstraint("phone_number", "topic"),)
 
     # Relationships
     user = relationship("User", back_populates="subscriptions")
@@ -172,7 +172,7 @@ class Message(db.Model):
     )
 
     campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False)
-    recipient_phone = Column(String(16), ForeignKey("users.phone_e164"), nullable=False)
+    phone_number = Column(String(16), ForeignKey("users.phone_number"), nullable=False)
 
     # State Machine Core
     status = Column(
@@ -326,9 +326,9 @@ class InboundEvent(db.Model):
         nullable=True,
         comment="Link to message if this was a reply.",
     )
-    user_phone = Column(
+    phone_number = Column(
         String(16),
-        ForeignKey("users.phone_e164"),
+        ForeignKey("users.phone_number"),
         nullable=True,
         comment="Link to user who sent the message.",
     )
@@ -371,9 +371,9 @@ class DeliveryReceipt(db.Model):
         nullable=True,
         comment="Link to the message record if available.",
     )
-    user_phone = Column(
-        String(16),
-        ForeignKey("users.phone_e164"),
+    phone_number = Column(
+        String(16), 
+        ForeignKey("users.phone_number"),
         nullable=True,
         comment="Link to user for aggregated reporting.",
     )
@@ -385,7 +385,7 @@ class DeliveryReceipt(db.Model):
 
 # Performance Indexes for High-Traffic Queries
 Index("idx_messages_status_created", Message.status, Message.created_at)
-Index("idx_messages_recipient_phone", Message.recipient_phone)
+Index("idx_messages_phone_number", Message.phone_number)
 Index("idx_delivery_receipts_message_sid", DeliveryReceipt.message_sid)
 Index("idx_inbound_events_from_phone", InboundEvent.from_phone)
 Index("idx_inbound_events_channel_type", InboundEvent.channel_type)

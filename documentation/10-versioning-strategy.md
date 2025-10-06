@@ -29,7 +29,7 @@ MAJOR.MINOR.PATCH
 **Impact on Consumers:** **High Risk** - Requires code changes to adapt
 
 **Examples of MAJOR changes:**
-- Changing core database schema (e.g., `phone_e164` column type modification)
+- Changing core database schema (e.g., `phone_number` column type modification)
 - Modifying existing API endpoint structures or removing endpoints
 - Breaking changes to webhook payload formats
 - Fundamental architecture changes requiring configuration updates

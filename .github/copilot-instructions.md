@@ -15,7 +15,7 @@ This is a production-grade event-driven messaging platform for personalized What
 - **`main.py`** - Application factory initializing Flask, Celery, and database connections
 
 ### 2. Data Model Patterns
-- **Primary Keys:** Use E.164 phone numbers as PK for Users table
+- **Primary Keys:** Use E.164 phone numbers as PK for Users table (phone_number field)
 - **State Machines:** Messages table tracks delivery lifecycle (queued → sending → sent → delivered/failed)
 - **Audit Trail:** Store both raw webhook data and normalized records for compliance
 - **JSON Attributes:** Use PostgreSQL JSON columns for flexible user attributes and segment definitions

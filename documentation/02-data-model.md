@@ -16,7 +16,7 @@ The Event Stream Engine data model is designed around **event-driven messaging w
     ┌─────────────┐                ┌─────────────┐              ┌─────────────┐
     │    User     │                │  Campaign   │              │  Template   │
     │             │                │             │              │             │
-    │ phone_e164* │────────────────│ template_id │─────────────▶│ id*         │
+    │ phone_number* │───────────────│ template_id │─────────▶│ id*         │
     │ attributes  │                │ segment_id  │              │ name        │
     │ consent     │                │ status      │              │ content     │
     └─────────────┘                └─────────────┘              └─────────────┘
@@ -57,7 +57,7 @@ The Event Stream Engine data model is designed around **event-driven messaging w
 
 ```sql
 CREATE TABLE users (
-    phone_e164 VARCHAR(20) PRIMARY KEY,  -- Internationally formatted phone
+    phone_number VARCHAR(20) PRIMARY KEY,  -- Internationally formatted phone
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     consent_state VARCHAR(20) DEFAULT 'OPT_IN',
@@ -76,7 +76,7 @@ CREATE TABLE users (
 **Sample Data**:
 ```json
 {
-  "phone_e164": "+14155551234",
+  "phone_number": "+14155551234",
   "consent_state": "OPT_IN", 
   "attributes": {
     "name": "John Doe",
@@ -180,7 +180,7 @@ CREATE TABLE segments (
 ```sql
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    recipient_phone VARCHAR(20) NOT NULL REFERENCES users(phone_e164),
+    phone_number VARCHAR(20) NOT NULL REFERENCES users(phone_number),
     campaign_id UUID REFERENCES campaigns(id),
     rendered_content TEXT NOT NULL,
     provider_sid VARCHAR(50),  -- Twilio MessageSid
@@ -258,7 +258,7 @@ CREATE INDEX idx_users_attributes_gin ON users USING gin(attributes);
 CREATE INDEX idx_users_consent_state ON users(consent_state);
 
 -- Campaign execution queries  
-CREATE INDEX idx_messages_recipient ON messages(recipient_phone);
+CREATE INDEX idx_messages_recipient ON messages(phone_number);
 CREATE INDEX idx_messages_campaign ON messages(campaign_id);
 CREATE INDEX idx_messages_status_created ON messages(status, created_at);
 
@@ -276,7 +276,7 @@ CREATE INDEX idx_delivery_receipts_message_sid ON delivery_receipts(message_sid)
 **1. Segment Evaluation**
 ```sql
 -- Find users matching segment criteria
-SELECT phone_e164, attributes 
+SELECT phone_number, attributes 
 FROM users 
 WHERE consent_state = 'OPT_IN'
   AND attributes @> '{"city": "San Francisco", "tier": "premium"}';
