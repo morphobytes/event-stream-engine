@@ -43,14 +43,14 @@ FAILED_STATUS_WEBHOOK = {
 BULK_USER_IMPORT = {
     "users": [
         {
-            "phone_e164": "+15551234001",
+            "phone_number": "+15551234001",
             "name": "Test User 1",
             "city": "New York",
             "age": 25,
             "consent_state": "OPT_IN"
         },
         {
-            "phone_e164": "+15551234002", 
+            "phone_number": "+15551234002", 
             "name": "Test User 2",
             "city": "Los Angeles", 
             "age": 30,

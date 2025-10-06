@@ -75,7 +75,7 @@ def create_sample_data():
             # Create sample users
             sample_users = [
                 User(
-                    phone_e164="+1234567890",
+                    phone_number="+1234567890",
                     consent_state=ConsentState.OPT_IN,
                     attributes={
                         "first_name": "John",
@@ -85,7 +85,7 @@ def create_sample_data():
                     }
                 ),
                 User(
-                    phone_e164="+1234567891",
+                    phone_number="+1234567891",
                     consent_state=ConsentState.OPT_IN,
                     attributes={
                         "first_name": "Jane",
@@ -95,7 +95,7 @@ def create_sample_data():
                     }
                 ),
                 User(
-                    phone_e164="+1234567892",
+                    phone_number="+1234567892",
                     consent_state=ConsentState.OPT_OUT,
                     attributes={
                         "first_name": "Bob",

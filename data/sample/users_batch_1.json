@@ -1,0 +1,98 @@
+[
+  {
+    "phone_number": "+94771234567",
+    "name": "Arjuna Silva",
+    "city": "Colombo",
+    "country": "Sri Lanka",
+    "timezone": "Asia/Colombo",
+    "language": "en",
+    "product_interest": "electronics",
+    "registration_source": "website",
+    "age_group": "25-34",
+    "consent_state": "OPT_IN"
+  },
+  {
+    "phone_number": "+94772345678",
+    "name": "Priya Perera",
+    "city": "Kandy",
+    "country": "Sri Lanka", 
+    "timezone": "Asia/Colombo",
+    "language": "si",
+    "product_interest": "fashion",
+    "registration_source": "mobile_app", 
+    "age_group": "35-44",
+    "consent_state": "OPT_IN"
+  },
+  {
+    "phone_number": "+94773456789",
+    "name": "Rohan Fernando",
+    "city": "Galle",
+    "country": "Sri Lanka",
+    "timezone": "Asia/Colombo", 
+    "language": "en",
+    "product_interest": "travel",
+    "registration_source": "social_media",
+    "age_group": "18-24",
+    "consent_state": "OPT_IN"
+  },
+  {
+    "phone_number": "+94774567890",
+    "name": "Sanduni Wickramasinghe",
+    "city": "Colombo",
+    "country": "Sri Lanka",
+    "timezone": "Asia/Colombo",
+    "language": "si", 
+    "product_interest": "health",
+    "registration_source": "referral",
+    "age_group": "25-34",
+    "consent_state": "OPT_IN"
+  },
+  {
+    "phone_number": "+94775678901",
+    "name": "Kasun Rajapaksa",
+    "city": "Negombo",
+    "country": "Sri Lanka",
+    "timezone": "Asia/Colombo",
+    "language": "en",
+    "product_interest": "sports",
+    "registration_source": "website",
+    "age_group": "35-44", 
+    "consent_state": "OPT_IN"
+  },
+  {
+    "phone_number": "+91987654321",
+    "name": "Amit Sharma",
+    "city": "Mumbai",
+    "country": "India",
+    "timezone": "Asia/Kolkata",
+    "language": "en",
+    "product_interest": "technology",
+    "registration_source": "mobile_app",
+    "age_group": "25-34",
+    "consent_state": "OPT_IN"
+  },
+  {
+    "phone_number": "+91876543210",
+    "name": "Priyanka Gupta",
+    "city": "Delhi",
+    "country": "India",
+    "timezone": "Asia/Kolkata", 
+    "language": "hi",
+    "product_interest": "beauty",
+    "registration_source": "social_media",
+    "age_group": "18-24",
+    "consent_state": "OPT_IN"
+  },
+  {
+    "phone_number": "+60123456789",
+    "name": "Ahmad Rahman",
+    "city": "Kuala Lumpur",
+    "country": "Malaysia",
+    "timezone": "Asia/Kuala_Lumpur",
+    "language": "ms",
+    "product_interest": "automotive",
+    "registration_source": "website",
+    "age_group": "35-44",
+    "consent_state": "OPT_IN"
+  }
+]

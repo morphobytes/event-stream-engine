@@ -1,4 +1,4 @@
-phone_e164,name,city,age,consent_state
+phone_number,name,city,age,consent_state
 +94771234571,Alice Johnson,Colombo,25,OPT_IN
 +94771234572,Bob Smith,Kandy,30,OPT_IN
 whatsapp:+94771234573,Carol Brown,Galle,28,OPT_OUT

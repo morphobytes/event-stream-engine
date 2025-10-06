@@ -84,7 +84,7 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    CONSTRAINT valid_phone_format CHECK (phone_e164 ~ '^\\+[1-9]\\d{1,14}$'),
+    CONSTRAINT valid_phone_format CHECK (phone_number ~ '^\\+[1-9]\\d{1,14}$'),
     CONSTRAINT valid_consent_state CHECK (consent_state IN ('OPT_IN', 'OPT_OUT', 'STOP'))
 );
 
@@ -96,7 +96,7 @@ CREATE INDEX idx_users_attributes_gin ON users USING gin(attributes);
 #### **3. Subscriptions Table - User Topic Relations**
 ```sql
 CREATE TABLE subscriptions (
-    user_phone VARCHAR(16) NOT NULL REFERENCES users(phone_e164),
+    user_phone VARCHAR(16) NOT NULL REFERENCES users(phone_number),
     topic VARCHAR(100) NOT NULL,
     
     PRIMARY KEY (user_phone, topic)
@@ -162,7 +162,7 @@ CREATE INDEX idx_segments_definition_json ON segments USING gin(definition_json)
 CREATE TABLE messages (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     campaign_id INTEGER NOT NULL REFERENCES campaigns(id),
-    recipient_phone VARCHAR(16) NOT NULL REFERENCES users(phone_e164),
+    recipient_phone VARCHAR(16) NOT NULL REFERENCES users(phone_number),
     
     -- State machine tracking
     status VARCHAR(20) DEFAULT 'QUEUED',  -- QUEUED → SENDING → SENT → DELIVERED/FAILED
@@ -201,7 +201,7 @@ CREATE TABLE delivery_receipts (
     
     -- Foreign key relationships
     message_id TEXT REFERENCES messages(id),
-    user_phone VARCHAR(16) REFERENCES users(phone_e164)
+    user_phone VARCHAR(16) REFERENCES users(phone_number)
 );
 
 CREATE INDEX idx_delivery_receipts_message_sid ON delivery_receipts(message_sid);
@@ -225,7 +225,7 @@ CREATE TABLE events_inbound (
     
     -- Foreign key relationships
     message_id TEXT REFERENCES messages(id),
-    user_phone VARCHAR(16) REFERENCES users(phone_e164)
+    user_phone VARCHAR(16) REFERENCES users(phone_number)
 );
 
 CREATE INDEX idx_inbound_events_from_phone ON events_inbound(from_phone);

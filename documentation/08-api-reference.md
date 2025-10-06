@@ -54,7 +54,7 @@ POST /api/v1/users
 **Request Body**:
 ```json
 {
-  "phone_e164": "+14155551234",
+  "phone_number": "+14155551234",
   "consent_state": "OPT_IN",
   "attributes": {
     "name": "Jane Smith",
@@ -67,7 +67,7 @@ POST /api/v1/users
 **Response** (201 Created):
 ```json
 {
-  "phone_e164": "+14155551234",
+  "phone_number": "+14155551234",
   "created_at": "2024-01-25T16:45:00Z",
   "consent_state": "OPT_IN",
   "message": "User created successfully"
@@ -108,7 +108,7 @@ DELETE /api/v1/users/{phone_number}
 ```json
 {
   "message": "User deleted successfully",
-  "phone_e164": "+14155551234"
+  "phone_number": "+14155551234"
 }
 ```
 
@@ -546,7 +546,7 @@ ErrorCode=
 {
   "error": "validation_error",
   "message": "Phone number must be in E.164 format",
-  "field": "phone_e164"
+  "field": "phone_number"
 }
 ```
 

@@ -56,7 +56,7 @@ def process_inbound_message(event_id):
             user = User.query.get(normalized_phone)
             if not user:
                 user = User(
-                    phone_e164=normalized_phone,
+                    phone_number=normalized_phone,
                     consent_state=ConsentState.OPT_IN,
                     attributes={},
                 )

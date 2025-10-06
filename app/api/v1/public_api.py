@@ -207,14 +207,14 @@ def create_user():
         user_data = UserCreate(**request.json)
 
         # Check if user already exists
-        existing_user = User.query.get(user_data.phone_e164)
+        existing_user = User.query.get(user_data.phone_number)
         if existing_user:
             return (
                 jsonify(
                     ErrorResponse(
                         error="Conflict",
                         message=(
-                            f"User with phone {user_data.phone_e164} already exists"
+                            f"User with phone {user_data.phone_number} already exists"
                         ),
                     ).dict()
                 ),
@@ -223,7 +223,7 @@ def create_user():
 
         # Create new user
         new_user = User(
-            phone_e164=user_data.phone_e164,
+            phone_number=user_data.phone_number,
             attributes=user_data.attributes,
             consent_state=ConsentState(user_data.consent_state.value),
         )
@@ -249,14 +249,14 @@ def create_user():
         )
 
 
-@api_v1.route("/users/<phone_e164>", methods=["PUT"])
-def update_user(phone_e164):
+@api_v1.route("/users/<phone_number>", methods=["PUT"])
+def update_user(phone_number):
     """Update user attributes or consent state"""
     try:
         # Find user
-        user = User.query.get(phone_e164)
+        user = User.query.get(phone_number)
         if not user:
-            return handle_not_found("User", phone_e164)
+            return handle_not_found("User", phone_number)
 
         # Validate input (partial update allowed)
         update_data = UserUpdate(**request.json)
@@ -1069,7 +1069,7 @@ def get_campaign_summary(campaign_id):
 
         # Get opt-outs during campaign (users who opted out after campaign started)
         opt_outs_during = (
-            db.session.query(func.count(User.phone_e164))
+            db.session.query(func.count(User.phone_number))
             .filter(
                 User.consent_state.in_(["OPT_OUT", "STOP"]),
                 (
@@ -1250,7 +1250,7 @@ def get_reporting_dashboard():
 
         # User metrics with single query
         user_stats = db.session.query(
-            func.count(User.phone_e164).label("total_users"),
+            func.count(User.phone_number).label("total_users"),
             func.sum(
                 case((User.consent_state.in_(["OPT_OUT", "STOP"]), 1), else_=0)
             ).label("opted_out_users"),

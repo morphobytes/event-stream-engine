@@ -219,7 +219,7 @@ def create_app() -> Flask:
                 else:
                     # Create user with STOP state if not exists
                     user = User(
-                        phone_e164=normalized_phone,
+                        phone_number=normalized_phone,
                         consent_state=ConsentState.STOP,
                         attributes={},
                     )

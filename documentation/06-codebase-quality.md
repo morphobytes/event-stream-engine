@@ -290,7 +290,7 @@ opted_out_users = User.query.filter(
 
 # After: Combined queries with efficient aggregation
 user_stats = db.session.query(
-    func.count(User.phone_e164).label('total_users'),
+    func.count(User.phone_number).label('total_users'),
     func.sum(
         case(
             (User.consent_state.in_(["OPT_OUT", "STOP"]), 1),

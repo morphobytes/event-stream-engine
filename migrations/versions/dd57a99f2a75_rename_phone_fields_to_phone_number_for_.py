@@ -31,8 +31,8 @@ def upgrade():
     with op.batch_alter_table('subscriptions', schema=None) as batch_op:
         batch_op.drop_constraint('subscriptions_user_phone_fkey', type_='foreignkey')
     
-    # Step 2: Rename users.phone_e164 to users.phone_number
-    op.alter_column('users', 'phone_e164', new_column_name='phone_number')
+    # Step 2: Rename users.phone_number to users.phone_number
+    op.alter_column('users', 'phone_number', new_column_name='phone_number')
     
     # Step 3: Rename other tables' phone columns and copy data
     op.alter_column('delivery_receipts', 'user_phone', new_column_name='phone_number') 
@@ -78,23 +78,23 @@ def downgrade():
     op.alter_column('events_inbound', 'phone_number', new_column_name='user_phone') 
     op.alter_column('messages', 'phone_number', new_column_name='recipient_phone')
     op.alter_column('subscriptions', 'phone_number', new_column_name='user_phone')
-    op.alter_column('users', 'phone_number', new_column_name='phone_e164')
+    op.alter_column('users', 'phone_number', new_column_name='phone_number')
     
     # Step 3: Recreate foreign keys with original names
     with op.batch_alter_table('delivery_receipts', schema=None) as batch_op:
-        batch_op.create_foreign_key('delivery_receipts_user_phone_fkey', 'users', ['user_phone'], ['phone_e164'])
+        batch_op.create_foreign_key('delivery_receipts_user_phone_fkey', 'users', ['user_phone'], ['phone_number'])
     
     with op.batch_alter_table('events_inbound', schema=None) as batch_op:
-        batch_op.create_foreign_key('events_inbound_user_phone_fkey', 'users', ['user_phone'], ['phone_e164'])
+        batch_op.create_foreign_key('events_inbound_user_phone_fkey', 'users', ['user_phone'], ['phone_number'])
     
     with op.batch_alter_table('messages', schema=None) as batch_op:
-        batch_op.create_foreign_key('messages_recipient_phone_fkey', 'users', ['recipient_phone'], ['phone_e164'])
+        batch_op.create_foreign_key('messages_recipient_phone_fkey', 'users', ['recipient_phone'], ['phone_number'])
         batch_op.create_index('idx_messages_recipient_phone', ['recipient_phone'], unique=False)
     
     with op.batch_alter_table('subscriptions', schema=None) as batch_op:
-        batch_op.create_foreign_key('subscriptions_user_phone_fkey', 'users', ['user_phone'], ['phone_e164'])
+        batch_op.create_foreign_key('subscriptions_user_phone_fkey', 'users', ['user_phone'], ['phone_number'])
         batch_op.drop_constraint(None, type_='foreignkey')
-        batch_op.create_foreign_key(batch_op.f('delivery_receipts_user_phone_fkey'), 'users', ['user_phone'], ['phone_e164'])
+        batch_op.create_foreign_key(batch_op.f('delivery_receipts_user_phone_fkey'), 'users', ['user_phone'], ['phone_number'])
         batch_op.drop_column('phone_number')
 
     # ### end Alembic commands ###

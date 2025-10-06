@@ -66,7 +66,7 @@ def load_sample_data():
     # Sample users
     users = [
         {
-            'phone_e164': '+94771234567',
+            'phone_number': '+94771234567',
             'consent_state': ConsentState.OPT_IN,
             'attributes': {
                 'profile_name': 'John Doe',
@@ -76,7 +76,7 @@ def load_sample_data():
             }
         },
         {
-            'phone_e164': '+94771234568', 
+            'phone_number': '+94771234568', 
             'consent_state': ConsentState.OPT_IN,
             'attributes': {
                 'profile_name': 'Jane Smith',
@@ -86,7 +86,7 @@ def load_sample_data():
             }
         },
         {
-            'phone_e164': '+94771234569',
+            'phone_number': '+94771234569',
             'consent_state': ConsentState.STOP,
             'attributes': {
                 'profile_name': 'Bob Wilson',
@@ -114,11 +114,11 @@ def load_sample_data():
     
     print("Loading sample users...")
     for user_data in users:
-        existing = User.query.get(user_data['phone_e164'])
+        existing = User.query.get(user_data['phone_number'])
         if not existing:
             user = User(**user_data)
             db.session.add(user)
-            print(f"Created user: {user_data['phone_e164']}")
+            print(f"Created user: {user_data['phone_number']}")
     
     db.session.commit()
     print("Sample data loaded successfully!")

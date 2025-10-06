@@ -1,0 +1,38 @@
+[
+  {
+    "phone_number": "+94781111111",
+    "name": "Test User Opted Out",
+    "city": "Colombo",
+    "country": "Sri Lanka",
+    "timezone": "Asia/Colombo",
+    "language": "en",
+    "product_interest": "testing",
+    "registration_source": "api",
+    "age_group": "25-34",
+    "consent_state": "STOP"
+  },
+  {
+    "phone_number": "+94782222222", 
+    "name": "Pending Consent User",
+    "city": "Kandy",
+    "country": "Sri Lanka",
+    "timezone": "Asia/Colombo",
+    "language": "si",
+    "product_interest": "testing",
+    "registration_source": "api",
+    "age_group": "18-24",
+    "consent_state": "PENDING"
+  },
+  {
+    "phone_number": "+94783333333",
+    "name": "Active Campaign User",
+    "city": "Galle", 
+    "country": "Sri Lanka",
+    "timezone": "Asia/Colombo",
+    "language": "en",
+    "product_interest": "electronics",
+    "registration_source": "campaign",
+    "age_group": "35-44",
+    "consent_state": "OPT_IN"
+  }
+]

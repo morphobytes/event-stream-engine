@@ -137,7 +137,7 @@ from app.main import app
 from app.core.data_model import db, User, Campaign
 with app.app_context():
     # Create sample user
-    user = User(phone_e164='+1234567890', attributes={'name': 'Test User'})
+    user = User(phone_number='+1234567890', attributes={'name': 'Test User'})
     db.session.add(user)
     db.session.commit()
 "

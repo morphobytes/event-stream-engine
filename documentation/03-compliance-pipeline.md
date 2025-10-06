@@ -28,14 +28,14 @@ The Event Stream Engine implements a **comprehensive 6-step compliance pipeline*
 
 #### **Implementation Logic**
 ```python
-def verify_consent(user_phone_e164: str) -> Tuple[bool, str]:
+def verify_consent(user_phone_number: str) -> Tuple[bool, str]:
     """
     Verify user consent state before message delivery
     
     Returns:
         (is_eligible, reason)
     """
-    user = User.query.get(user_phone_e164)
+    user = User.query.get(user_phone_number)
     
     if not user:
         return False, "User not found in database"

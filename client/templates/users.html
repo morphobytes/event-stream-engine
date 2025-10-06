@@ -12,7 +12,7 @@
             <div>
                 <h3>📁 Drop your file here or click to browse</h3>
                 <p>Supported formats: CSV, JSON</p>
-                <p>Required fields: phone_e164, attributes (optional), consent_state (optional)</p>
+                <p>Required fields: phone_number, attributes (optional), consent_state (optional)</p>
             </div>
             <input type="file" id="file-input" name="file" accept=".csv,.json" style="display: none;">
         </div>
@@ -55,8 +55,8 @@
                 {% for user in users[:50] %}  <!-- Limit display to 50 for performance -->
                 <tr>
                     <td>
-                        <code onclick="utils.copyToClipboard('{{ user.phone_e164 }}')" style="cursor: pointer;">
-                            {{ user.phone_e164 }}
+                        <code onclick="utils.copyToClipboard('{{ user.phone_number }}')" style="cursor: pointer;">
+                            {{ user.phone_number }}
                         </code>
                     </td>
                     <td>
@@ -128,7 +128,7 @@
     <h2>📝 Sample CSV Format</h2>
     <p>Use this format for bulk user uploads:</p>
     <pre style="background: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto;">
-phone_e164,consent_state,name,location,product_interest
+phone_number,consent_state,name,location,product_interest
 +94771234567,OPT_IN,John Doe,Colombo,electronics
 +94771234568,OPT_IN,Jane Smith,Kandy,fashion
 +94771234569,OPT_OUT,Bob Wilson,Galle,books</pre>
@@ -137,7 +137,7 @@ phone_e164,consent_state,name,location,product_interest
     <pre style="background: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto;">
 [
   {
-    "phone_e164": "+94771234567",
+    "phone_number": "+94771234567",
     "consent_state": "OPT_IN",
     "attributes": {
       "name": "John Doe",

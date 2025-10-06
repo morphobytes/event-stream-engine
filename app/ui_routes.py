@@ -70,7 +70,7 @@ def users():
             
             for user in users_query.items:
                 users_list.append({
-                    'phone_e164': user.phone_e164,
+                    'phone_number': user.phone_number,
                     'consent_state': user.consent_state.value if user.consent_state else 'UNKNOWN',
                     'attributes': user.attributes or {},
                     'created_at': user.created_at,  # Keep as datetime object for template

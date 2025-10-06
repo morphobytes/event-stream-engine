@@ -1,6 +1,6 @@
 [
   {
-    "phone_e164": "+94771234576", 
+    "phone_number": "+94771234576", 
     "name": "Frank Miller",
     "city": "Matara",
     "age": 40,
@@ -8,11 +8,34 @@
     "occupation": "Teacher"
   },
   {
-    "phone_e164": "whatsapp:+94771234577",
+    "phone_number": "whatsapp:+94771234577",
     "name": "Grace Wilson", 
     "city": "Anuradhapura",
     "age": 29,
     "consent_state": "OPT_IN",
     "occupation": "Doctor"
+  },{
+    "phone_number": "+94771234567",
+    "name": "Arjuna Silva",
+    "city": "Colombo",
+    "country": "Sri Lanka",
+    "timezone": "Asia/Colombo",
+    "language": "en",
+    "product_interest": "electronics",
+    "registration_source": "website",
+    "age_group": "25-34",
+    "consent_state": "OPT_IN"
+  },
+  {
+    "phone_number": "+94772345678",
+    "name": "Priya Perera",
+    "city": "Kandy",
+    "country": "Sri Lanka", 
+    "timezone": "Asia/Colombo",
+    "language": "si",
+    "product_interest": "fashion",
+    "registration_source": "mobile_app", 
+    "age_group": "35-44",
+    "consent_state": "OPT_IN"
   }
 ]

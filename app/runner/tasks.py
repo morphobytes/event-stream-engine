@@ -253,7 +253,7 @@ def _process_user_record(record: Dict[str, Any], record_number: int) -> Dict[str
     """
     # Extract phone number with channel prefix removal
     phone_raw = record.get(
-        "phone", record.get("phone_e164", record.get("phone_number"))
+        "phone", record.get("phone_number", record.get("phone_number"))
     )
     if not phone_raw:
         raise ValueError(f"Missing phone number in record {record_number}")
@@ -279,7 +279,7 @@ def _process_user_record(record: Dict[str, Any], record_number: int) -> Dict[str
     for key, value in record.items():
         if key not in [
             "phone",
-            "phone_e164",
+            "phone_number",
             "phone_number",
             "consent_state",
             "consent",
@@ -288,7 +288,7 @@ def _process_user_record(record: Dict[str, Any], record_number: int) -> Dict[str
                 attributes[key] = str(value).strip()
 
     return {
-        "phone_e164": phone_cleaned,
+        "phone_number": phone_cleaned,
         "consent_state": consent_state,
         "attributes": attributes,
     }
@@ -304,10 +304,10 @@ def _upsert_user(user_data: Dict[str, Any]) -> Dict[str, str]:
     Returns:
         Dict with action taken ('created' or 'merged')
     """
-    phone_e164 = user_data["phone_e164"]
+    phone_number = user_data["phone_number"]
 
     # Check if user exists
-    existing_user = User.query.get(phone_e164)
+    existing_user = User.query.get(phone_number)
 
     if existing_user:
         # Merge attributes (new attributes override existing ones)
@@ -321,17 +321,17 @@ def _upsert_user(user_data: Dict[str, Any]) -> Dict[str, str]:
         existing_user.consent_state = user_data["consent_state"]
         existing_user.updated_at = datetime.utcnow()
 
-        return {"action": "merged", "phone": phone_e164}
+        return {"action": "merged", "phone": phone_number}
     else:
         # Create new user
         new_user = User(
-            phone_e164=phone_e164,
+            phone_number=phone_number,
             attributes=user_data["attributes"],
             consent_state=user_data["consent_state"],
         )
 
         db.session.add(new_user)
-        return {"action": "created", "phone": phone_e164}
+        return {"action": "created", "phone": phone_number}
 
 
 # ============================================================================

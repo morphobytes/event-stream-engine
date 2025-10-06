@@ -205,7 +205,7 @@ def run_campaign_task(self, campaign_id: int):
                         results["skipped_reasons"]["missing_template_data"] += 1
                         results["errors"].append(
                             {
-                                "user_phone": user.phone_e164,
+                                "user_phone": user.phone_number,
                                 "error": f"Template rendering failed: {str(e)}",
                             }
                         )
@@ -251,7 +251,7 @@ def run_campaign_task(self, campaign_id: int):
 
                         results["errors"].append(
                             {
-                                "user_phone": user.phone_e164,
+                                "user_phone": user.phone_number,
                                 "error_code": twilio_result["error_code"],
                                 "error_message": twilio_result["error_message"],
                             }
