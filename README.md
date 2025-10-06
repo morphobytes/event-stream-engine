@@ -66,7 +66,7 @@ docker compose up -d  # PostgreSQL + Redis + Celery Worker
 flask db upgrade
 
 # 6. Start development server
-flask run  # Available at http://localhost:5000
+flask run  # Available at http://localhost:8000
 ```
 
 ### Environment Configuration
@@ -601,7 +601,7 @@ POST /webhooks/status      # Delivery status callbacks
 
 ## Web Interface Features
 
-### Dashboard (`http://localhost:5000/`)
+### Dashboard (`http://localhost:8000/`)
 - **System Overview**: Total users, campaigns, message volume metrics
 - **Recent Activity**: Latest campaigns and inbound message timeline  
 - **Health Monitoring**: System status indicators and performance metrics
@@ -649,11 +649,11 @@ flask db downgrade
 ### Sample Data Usage
 ```bash
 # Import sample users via API (CSV)
-curl -X POST http://localhost:5000/api/v1/users/bulk \
+curl -X POST http://localhost:8000/api/v1/users/bulk \
   -F "file=@data/sample/test_users.csv"
 
 # Import sample users via API (JSON)  
-curl -X POST http://localhost:5000/api/v1/users/bulk \
+curl -X POST http://localhost:8000/api/v1/users/bulk \
   -H "Content-Type: application/json" \
   -d @data/sample/test_users.json
 
@@ -679,7 +679,7 @@ docker compose -f docker compose.dev.yml up
 
 # Production build testing
 docker build -t event-stream-engine .
-docker run -p 5000:5000 event-stream-engine
+docker run -p 8000:8000 event-stream-engine
 ```
 
 ## Production Metrics & Performance

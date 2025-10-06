@@ -45,6 +45,16 @@ class MessageStatus(PyEnum):
     UNDELIVERED = "UNDELIVERED"
 
 
+class CampaignStatus(PyEnum):
+    """Campaign status states for lifecycle management."""
+
+    DRAFT = "DRAFT"
+    READY = "READY"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    PAUSED = "PAUSED"
+
+
 # Import db instance for phone processing
 from app.main import db
 

@@ -96,12 +96,12 @@ flask seed-data  # If seeding script exists
 ### **6. Start Development Server**
 ```bash
 # Start Flask development server
-flask run --host=0.0.0.0 --port=5000
+flask run --host=0.0.0.0 --port=8000
 
 # Application available at:
-# http://localhost:5000 (Web UI)
-# http://localhost:5000/api/v1/ (API endpoints)
-# http://localhost:5000/health (Health check)
+# http://localhost:8000 (Web UI)
+# http://localhost:8000/api/v1/ (API endpoints)
+# http://localhost:8000/health (Health check)
 ```
 
 ---

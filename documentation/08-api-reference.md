@@ -600,7 +600,7 @@ if validator.validate(request.url, request.form, request.headers.get('X-Twilio-S
 ### **Complete Campaign Workflow**
 ```bash
 # 1. Create template
-curl -X POST http://localhost:5000/api/v1/templates \
+curl -X POST http://localhost:8000/api/v1/templates \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Welcome Message",
@@ -609,7 +609,7 @@ curl -X POST http://localhost:5000/api/v1/templates \
   }'
 
 # 2. Create segment
-curl -X POST http://localhost:5000/api/v1/segments \
+curl -X POST http://localhost:8000/api/v1/segments \
   -H "Content-Type: application/json" \
   -d '{
     "name": "New Users",
@@ -621,7 +621,7 @@ curl -X POST http://localhost:5000/api/v1/segments \
   }'
 
 # 3. Create campaign
-curl -X POST http://localhost:5000/api/v1/campaigns \
+curl -X POST http://localhost:8000/api/v1/campaigns \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Welcome Campaign",
@@ -630,10 +630,10 @@ curl -X POST http://localhost:5000/api/v1/campaigns \
   }'
 
 # 4. Trigger campaign
-curl -X POST http://localhost:5000/api/v1/campaigns/campaign-uuid/trigger
+curl -X POST http://localhost:8000/api/v1/campaigns/campaign-uuid/trigger
 
 # 5. Monitor performance
-curl http://localhost:5000/api/v1/reporting/campaigns/campaign-uuid/summary
+curl http://localhost:8000/api/v1/reporting/campaigns/campaign-uuid/summary
 ```
 
 ---
