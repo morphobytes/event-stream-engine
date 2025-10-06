@@ -1039,10 +1039,9 @@ def get_recent_inbound_events():
                 {
                     "event_id": event.id,
                     "user_phone": event.user_phone,
-                    "message_body": event.message_body,
-                    "media_url": event.media_url,
+                    "from_phone": event.from_phone,
                     "channel_type": event.channel_type,
-                    "provider_sid": event.provider_sid,
+                    "message_sid": event.message_sid,
                     "received_at": event.processed_at,
                     "processed": True,  # Assuming all stored events are processed
                     "normalized_body": event.normalized_body,
