@@ -32,6 +32,7 @@ from app.api.v1.schemas import (
     CampaignListResponse,
     SegmentCreate,
     SegmentResponse,
+    TemplateCreate,
     TemplateResponse,
     CampaignTriggerRequest,
     CampaignTriggerResponse,
@@ -333,6 +334,105 @@ def create_segment():
         return handle_integrity_error(e)
     except Exception as e:
         db.session.rollback()
+        return (
+            jsonify(
+                ErrorResponse(error="Internal Server Error", message=str(e)).dict()
+            ),
+            500,
+        )
+
+
+# TEMPLATES ENDPOINTS
+@api_v1.route("/templates", methods=["GET"])
+def get_templates():
+    """
+    Get all templates
+    Endpoint: GET /api/v1/templates
+    """
+    try:
+        templates = Template.query.order_by(Template.created_at.desc()).all()
+        
+        template_list = []
+        for template in templates:
+            template_dict = TemplateResponse.from_orm(template).dict()
+            template_list.append(template_dict)
+
+        return jsonify({"templates": template_list, "total_count": len(template_list)}), 200
+
+    except Exception as e:
+        return (
+            jsonify(
+                ErrorResponse(error="Internal Server Error", message=str(e)).dict()
+            ),
+            500,
+        )
+
+
+@api_v1.route("/templates", methods=["POST"])
+def create_template():
+    """
+    Create a new template
+    Endpoint: POST /api/v1/templates
+    """
+    try:
+        # Parse and validate request data
+        template_data = TemplateCreate(**request.get_json())
+
+        # Check if template name already exists
+        existing_template = Template.query.filter(Template.name == template_data.name).first()
+        if existing_template:
+            return (
+                jsonify(
+                    ErrorResponse(
+                        error="Conflict",
+                        message=f"Template with name '{template_data.name}' already exists",
+                    ).dict()
+                ),
+                409,
+            )
+
+        # Create new template
+        new_template = Template(
+            name=template_data.name,
+            content=template_data.content,
+            channel=template_data.channel,
+            locale=template_data.locale,
+        )
+
+        db.session.add(new_template)
+        db.session.commit()
+
+        return jsonify(TemplateResponse.from_orm(new_template).dict()), 201
+
+    except ValidationError as e:
+        return handle_validation_error(e)
+    except IntegrityError as e:
+        db.session.rollback()
+        return handle_integrity_error(e)
+    except Exception as e:
+        db.session.rollback()
+        return (
+            jsonify(
+                ErrorResponse(error="Internal Server Error", message=str(e)).dict()
+            ),
+            500,
+        )
+
+
+@api_v1.route("/templates/<int:template_id>", methods=["GET"])
+def get_template(template_id):
+    """
+    Get a specific template by ID
+    Endpoint: GET /api/v1/templates/{template_id}
+    """
+    try:
+        template = Template.query.get(template_id)
+        if not template:
+            return handle_not_found("Template", template_id)
+
+        return jsonify(TemplateResponse.from_orm(template).dict()), 200
+
+    except Exception as e:
         return (
             jsonify(
                 ErrorResponse(error="Internal Server Error", message=str(e)).dict()
