@@ -95,7 +95,7 @@
                 <td><span class="status status-failed">{{ error.error_code }}</span></td>
                 <td>{{ error.error_message }}</td>
                 <td><strong>{{ error.count }}</strong></td>
-                <td>{{ "%.1f" | format((error.count / summary.messages_failed * 100) if summary.messages_failed > 0 else 0) }}%</td>
+                <td>{{ "%.1f" | format((error.count / (summary.messages_failed|int) * 100) if (summary.messages_failed|int) > 0 else 0) }}%</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -121,8 +121,7 @@
                     <td style="font-weight: 600; color: #666;">Duration:</td>
                     <td>
                         {% if summary.campaign_started_at and summary.campaign_completed_at %}
-                            {% set duration = summary.campaign_completed_at - summary.campaign_started_at %}
-                            {{ duration.total_seconds() // 60 }} minutes
+                            From {{ summary.campaign_started_at }} to {{ summary.campaign_completed_at }}
                         {% else %}
                             N/A
                         {% endif %}
@@ -144,9 +143,8 @@
                 <tr>
                     <td style="font-weight: 600; color: #666;">Processing Rate:</td>
                     <td>
-                        {% if summary.campaign_started_at and summary.campaign_completed_at and summary.messages_sent > 0 %}
-                            {% set duration_seconds = (summary.campaign_completed_at - summary.campaign_started_at).total_seconds() %}
-                            {{ "%.1f" | format(summary.messages_sent / duration_seconds) }} msg/sec
+                        {% if summary.campaign_started_at and summary.campaign_completed_at and (summary.messages_sent|int) > 0 %}
+                            Calculation not available
                         {% else %}
                             N/A
                         {% endif %}
@@ -182,8 +180,8 @@
         </div>
         <div style="display: flex; gap: 20px; font-size: 14px;">
             <div><span style="color: #28a745;">●</span> Delivered: {{ summary.messages_delivered }} ({{ "%.1f" | format(summary.delivery_rate_percent) }}%)</div>
-            <div><span style="color: #17a2b8;">●</span> Sent: {{ summary.messages_sent - summary.messages_delivered }}</div>
-            <div><span style="color: #dc3545;">●</span> Failed: {{ summary.messages_failed }} ({{ "%.1f" | format((summary.messages_failed / total * 100) if total > 0 else 0) }}%)</div>
+            <div><span style="color: #17a2b8;">●</span> Sent: {{ (summary.messages_sent|int) - (summary.messages_delivered|int) }}</div>
+            <div><span style="color: #dc3545;">●</span> Failed: {{ summary.messages_failed }} ({{ "%.1f" | format(((summary.messages_failed|int) / total * 100) if total > 0 else 0) }}%)</div>
         </div>
     </div>
 </div>

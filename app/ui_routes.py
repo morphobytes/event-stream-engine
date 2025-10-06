@@ -200,24 +200,23 @@ def monitoring():
 def campaign_summary(campaign_id):
     """Detailed campaign summary page"""
     try:
-        # Get campaign summary from internal API call
-        from app.api.v1.public_api import get_campaign_summary
+        # Get campaign summary from API endpoint
+        import requests
         from flask import current_app
         
-        with current_app.test_request_context():
-            api_response = get_campaign_summary(campaign_id)
-            
-            # Extract data from API response
-            if api_response[1] == 200:  # HTTP 200 OK
-                response_data = api_response[0].get_json()
-                summary_data = response_data
-            else:
-                # Handle API error - use fallback data
-                summary_data = {
-                    "campaign_id": campaign_id,
-                    "campaign_topic": f"Campaign {campaign_id}",
-                    "campaign_status": "unknown",
-                    "total_recipients": 0,
+        # Make internal API call
+        api_url = f"http://localhost:8000/api/v1/reporting/campaigns/{campaign_id}/summary"
+        response = requests.get(api_url, timeout=5)
+        
+        if response.status_code == 200:
+            summary_data = response.json()
+        else:
+            # Handle API error - use fallback data
+            summary_data = {
+                "campaign_id": campaign_id,
+                "campaign_topic": f"Campaign {campaign_id}",
+                "campaign_status": "unknown",
+                "total_recipients": 0,
                     "messages_sent": 0,
                     "messages_delivered": 0,
                     "messages_failed": 0,
