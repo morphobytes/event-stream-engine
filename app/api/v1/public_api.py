@@ -963,10 +963,10 @@ def get_message_status(message_id):
         # Build response with delivery information if available
         response_data = {
             "message_id": message.id,
-            "user_phone": message.user_phone,
+            "user_phone": message.phone_number,
             "campaign_id": message.campaign_id,
-            "template_id": message.template_id,
-            "rendered_content": message.rendered_content,
+            "template_id": message.campaign.template_id if message.campaign else None,
+            "rendered_content": None,  # Field doesn't exist in Message model
             "status": (
                 message.status.value
                 if hasattr(message.status, "value")
@@ -980,7 +980,7 @@ def get_message_status(message_id):
             "provider_sid": message.provider_sid,
             "sent_at": message.sent_at,
             "error_code": message.error_code,
-            "error_message": message.error_message,
+            "error_message": f"Error Code {message.error_code}" if message.error_code else None,
             "created_at": message.created_at,
             "delivery_status": (
                 delivery_receipt.message_status if delivery_receipt else None
@@ -1362,8 +1362,8 @@ def get_reporting_dashboard():
             {
                 "message_id": msg.id,
                 "error_code": msg.error_code,
-                "error_message": msg.error_message,
-                "user_phone": msg.user_phone,
+                "error_message": f"Error Code {msg.error_code}" if msg.error_code else None,
+                "user_phone": msg.phone_number,
                 "timestamp": msg.created_at,
             }
             for msg in recent_errors_query
