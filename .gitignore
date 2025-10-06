@@ -146,4 +146,4 @@ coverage.xml
 
 # Temporary files
 temp/
-tmp/
+tmp/.env.dev
