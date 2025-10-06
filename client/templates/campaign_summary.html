@@ -163,16 +163,19 @@
         <h4>Message Delivery Breakdown</h4>
         <div style="display: flex; align-items: center; margin-bottom: 10px;">
             <div style="width: 100%; height: 30px; background: #e9ecef; border-radius: 15px; overflow: hidden; display: flex;">
-                {% set total = summary.messages_sent + summary.messages_failed %}
+                {% set messages_sent = summary.messages_sent|int %}
+                {% set messages_delivered = summary.messages_delivered|int %}
+                {% set messages_failed = summary.messages_failed|int %}
+                {% set total = messages_sent + messages_failed %}
                 {% if total > 0 %}
-                    <div style="background: #28a745; width: {{ (summary.messages_delivered / total * 100) }}%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
-                        {% if summary.messages_delivered / total > 0.1 %}Delivered ({{ summary.messages_delivered }}){% endif %}
+                    <div style="background: #28a745; width: {{ (messages_delivered / total * 100) }}%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                        {% if messages_delivered / total > 0.1 %}Delivered ({{ messages_delivered }}){% endif %}
                     </div>
-                    <div style="background: #17a2b8; width: {{ ((summary.messages_sent - summary.messages_delivered) / total * 100) }}%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
-                        {% if (summary.messages_sent - summary.messages_delivered) / total > 0.1 %}Sent ({{ summary.messages_sent - summary.messages_delivered }}){% endif %}
+                    <div style="background: #17a2b8; width: {{ ((messages_sent - messages_delivered) / total * 100) }}%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                        {% if (messages_sent - messages_delivered) / total > 0.1 %}Sent ({{ messages_sent - messages_delivered }}){% endif %}
                     </div>
-                    <div style="background: #dc3545; width: {{ (summary.messages_failed / total * 100) }}%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
-                        {% if summary.messages_failed / total > 0.1 %}Failed ({{ summary.messages_failed }}){% endif %}
+                    <div style="background: #dc3545; width: {{ (messages_failed / total * 100) }}%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                        {% if messages_failed / total > 0.1 %}Failed ({{ messages_failed }}){% endif %}
                     </div>
                 {% endif %}
             </div>
