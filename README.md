@@ -37,7 +37,7 @@ A **production-grade event-driven messaging platform** for personalized WhatsApp
 
 ```bash
 # Install Docker & Docker Compose
-docker --version && docker-compose --version
+docker --version && docker compose --version
 
 # Python 3.8+ with virtual environment
 python3 --version
@@ -60,7 +60,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 # 4. Start infrastructure services
-docker-compose up -d  # PostgreSQL + Redis + Celery Worker
+docker compose up -d  # PostgreSQL + Redis + Celery Worker
 
 # 5. Initialize database
 flask db upgrade
@@ -89,6 +89,366 @@ TWILIO_PHONE_NUMBER=whatsapp:+1234567890
 FLASK_ENV=development
 SECRET_KEY=your-secret-key-here
 ```
+
+## Complete Workflow Demonstration
+
+This section provides a comprehensive demonstration guide for showcasing the Event Stream Engine's complete workflow.
+
+### Overview
+**Duration:** ~15-20 minutes  
+**Format:** Step-by-step with expected outcomes  
+**Prerequisites:** Clean database, all services running
+
+---
+
+### Part 1: System Health & Setup (2 minutes)
+
+#### 1.1 Verify System Status
+```bash
+# Check all services are running
+docker compose ps
+
+# Verify application health
+curl http://localhost:8000/health
+```
+
+**Expected:** All 5 containers running, health returns `{"status": "healthy"}`
+
+#### 1.2 Open Key Interfaces
+- **Main Dashboard:** `http://localhost:8000/`
+- **Monitoring:** `http://localhost:8000/monitoring`  
+- **Campaigns:** `http://localhost:8000/campaigns`
+
+**Expected:** Clean interface showing "No users found", empty monitoring dashboard
+
+---
+
+### Part 2: User Data Ingestion (3 minutes)
+
+#### 2.1 Bulk User Upload via API
+
+**Sample Data (test_users.json):**
+```json
+[
+  {
+    "phone_number": "+94771234576", 
+    "name": "Frank Miller",
+    "city": "Matara",
+    "age": 40,
+    "consent_state": "OPT_IN",
+    "occupation": "Teacher"
+  },
+  {
+    "phone_number": "whatsapp:+94771234577",
+    "name": "Grace Wilson", 
+    "city": "Anuradhapura",
+    "age": 29,
+    "consent_state": "OPT_IN",
+    "occupation": "Doctor"
+  },
+  {
+    "phone_number": "+94771234567",
+    "name": "Arjuna Silva",
+    "city": "Colombo",
+    "country": "Sri Lanka",
+    "timezone": "Asia/Colombo",
+    "language": "en",
+    "product_interest": "electronics",
+    "registration_source": "website",
+    "age_group": "25-34",
+    "consent_state": "OPT_IN"
+  },
+  {
+    "phone_number": "+94772345678",
+    "name": "Priya Perera",
+    "city": "Kandy",
+    "country": "Sri Lanka", 
+    "timezone": "Asia/Colombo",
+    "language": "si",
+    "product_interest": "fashion",
+    "registration_source": "mobile_app", 
+    "age_group": "35-44",
+    "consent_state": "OPT_IN"
+  }
+]
+```
+
+**Upload Command:**
+```bash
+# Upload test users from JSON file
+curl -X POST -F "file=@data/sample/test_users.json" \
+  http://localhost:8000/api/v1/ingest/users/bulk
+```
+
+**Expected Response:**
+```json
+{
+  "task_id": "uuid-task-id",
+  "message": "Bulk ingestion started",
+  "file_info": {
+    "filename": "test_users.json",
+    "records_preview": 4
+  }
+}
+```
+
+#### 2.2 Monitor Ingestion Progress
+```bash
+# Check worker logs
+docker compose logs worker | tail -20
+
+# Verify users created
+curl http://localhost:8000/api/v1/users | jq '.users | length'
+```
+
+**Expected:** 4 users ingested, dashboard shows user count updated
+
+#### 2.3 Explore User Data
+Navigate to dashboard, show:
+- **User count:** 4 users
+- **Geographic distribution:** Matara, Anuradhapura, Colombo, Galle
+- **Consent states:** All OPT_IN (ready for campaigns)
+
+---
+
+### Part 3: Segment Creation & Targeting (3 minutes)
+
+#### 3.1 Create Geographic Segment
+```bash
+# Create Colombo users segment
+curl -X POST http://localhost:8000/api/v1/segments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Colombo Area Users",
+    "definition_json": {
+      "attribute": "city",
+      "operator": "equals", 
+      "value": "Colombo"
+    }
+  }'
+```
+
+#### 3.2 Create Multi-City Segment  
+```bash
+# Create broader segment for multiple cities
+curl -X POST http://localhost:8000/api/v1/segments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Major Cities",
+    "definition_json": {
+      "conditions": [
+        {"attribute": "city", "operator": "equals", "value": "Colombo"},
+        {"attribute": "city", "operator": "equals", "value": "Matara"}
+      ],
+      "logic": "OR"
+    }
+  }'
+```
+
+**Expected:** 2 segments created, show segment evaluation results
+
+---
+
+### Part 4: Template Management (2 minutes)
+
+#### 4.1 Create Campaign Templates
+```bash
+# Welcome template with personalization
+curl -X POST http://localhost:8000/api/v1/templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Welcome Message",
+    "content": "Hi {name}! Welcome from {city}. Thanks for joining our service! Reply STOP to opt out.",
+    "variables": ["name", "city"]
+  }'
+
+# Promotional template
+curl -X POST http://localhost:8000/api/v1/templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "City Promotion",  
+    "content": "Hello {name}! Special offer for {city} residents. Limited time only! Reply STOP to unsubscribe.",
+    "variables": ["name", "city"]
+  }'
+```
+
+#### 4.2 Verify Templates
+```bash
+curl http://localhost:8000/api/v1/templates | jq '.templates[] | {id, name, content}'
+```
+
+**Expected:** Templates available for campaign selection
+
+---
+
+### Part 5: Campaign Creation & Configuration (4 minutes)
+
+#### 5.1 Create Campaign via Web UI
+Navigate to `http://localhost:8000/campaigns`, click "New Campaign":
+
+**Campaign Details:**
+- **Topic:** "Welcome Campaign - Live Demo"
+- **Template:** Select "Welcome Message"
+- **Target Recipients:** Select "Major Cities" segment
+- **Rate Limit:** 2 messages/second
+- **Quiet Hours:** Leave empty (24/7 sending)
+
+#### 5.2 Alternative: API Campaign Creation
+```bash
+curl -X POST http://localhost:8000/api/v1/campaigns \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "API Demo Campaign",
+    "template_id": 1,
+    "segment_id": 2,
+    "rate_limit_per_second": 1,
+    "quiet_hours_start": null,
+    "quiet_hours_end": null
+  }'
+```
+
+#### 5.3 Verify Campaign Setup
+```bash
+# Check campaign details
+curl http://localhost:8000/api/v1/campaigns/1 | jq '.'
+```
+
+**Expected:** Campaign in DRAFT status, properly configured
+
+---
+
+### Part 6: Campaign Execution & Live Delivery (5 minutes)
+
+#### 6.1 Trigger Campaign Launch
+```bash
+# Launch the campaign
+curl -X POST http://localhost:8000/api/v1/campaigns/1/trigger \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**Expected Response:**
+```json
+{
+  "campaign_id": 1,
+  "status": "RUNNING",
+  "task_id": "execution-task-uuid"
+}
+```
+
+#### 6.2 Monitor Real-Time Execution
+```bash
+# Watch worker logs for campaign processing
+docker compose logs -f worker
+
+# Check campaign progress
+curl http://localhost:8000/api/v1/reporting/campaigns/1/summary | jq '.'
+```
+
+**Show in logs:**
+- Segment evaluation (X recipients found)
+- Template rendering with user attributes
+- Rate limiting enforcement
+- Message dispatch to Twilio API
+
+#### 6.3 Track Message Delivery
+Navigate to monitoring dashboard:
+- **Messages Sent:** Real-time counter updates
+- **Delivery Status:** Track sent → delivered progression
+- **Rate Limiting:** Show controlled message pacing
+
+**Expected:** Messages successfully sent via Twilio API
+
+---
+
+### Part 7: Inbound Message Handling (3 minutes)
+
+#### 7.1 Simulate Webhook Reception
+```bash
+# Simulate inbound message webhook from Twilio
+curl -X POST http://localhost:8000/webhooks/inbound \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "From=whatsapp:+94771234576&To=whatsapp:+14155238886&Body=Hello%20world&MessageSid=SM123test&WaId=94771234576"
+```
+
+#### 7.2 Simulate STOP Command
+```bash
+# Test compliance with STOP command
+curl -X POST http://localhost:8000/webhooks/inbound \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "From=whatsapp:+94771234577&To=whatsapp:+14155238886&Body=STOP&MessageSid=SM456test&WaId=94771234577"
+```
+
+#### 7.3 Monitor Compliance Enforcement
+Check monitoring dashboard:
+- **Recent Inbound Messages:** Shows masked phone numbers
+- **Message Classification:** "Text Reply" vs "STOP Command"
+- **User Consent Updates:** Verify STOP user moved to opted-out status
+
+**Expected:** STOP command processed, user consent updated to STOP
+
+---
+
+### Part 8: Analytics & Reporting (2 minutes)
+
+#### 8.1 Campaign Performance Dashboard
+Navigate to `http://localhost:8000/campaign/1/summary`:
+
+**Key Metrics:**
+- Total recipients targeted
+- Messages sent vs delivered
+- Delivery rate percentage  
+- Message throughput (msg/min)
+- Error breakdown by type
+
+#### 8.2 System Health Monitoring
+Navigate to `http://localhost:8000/monitoring`:
+
+**Health Indicators:**
+- ✅ Twilio API connectivity
+- ✅ Redis cache performance  
+- ✅ Database query responsiveness
+- ✅ Worker task processing
+
+#### 8.3 API Reporting
+```bash
+# Get detailed campaign analytics
+curl http://localhost:8000/api/v1/reporting/campaigns/1/summary | jq '.'
+
+# Check user consent states after STOP processing
+curl http://localhost:8000/api/v1/users | jq '.users[] | {phone_number, name, consent_state}'
+```
+
+---
+
+### Demonstration Script Notes
+
+#### Key Talking Points
+1. **Scalable Ingestion:** "Bulk user upload processes thousands of records with automatic E.164 validation"
+2. **Flexible Targeting:** "Dynamic segments allow complex audience definition using JSON DSL"
+3. **Compliance First:** "Built-in STOP command processing and quiet hours enforcement"
+4. **Real-Time Monitoring:** "Live campaign metrics and privacy-conscious message monitoring"
+5. **Audit Trail:** "Complete webhook storage and processing decisions logged for compliance"
+
+#### Expected Outcomes Summary
+- ✅ **4 users ingested** from JSON file
+- ✅ **2 segments created** with different targeting logic
+- ✅ **2 templates available** for personalized messaging
+- ✅ **1 campaign executed** successfully with rate limiting
+- ✅ **Messages delivered** via Twilio WhatsApp API
+- ✅ **STOP command processed** with consent state update
+- ✅ **Real-time analytics** showing campaign performance
+
+#### Technical Highlights
+- **Event-Driven Architecture:** Webhook → Queue → Process → Deliver
+- **Horizontal Scaling:** Celery workers can scale independently
+- **Data Consistency:** Database transactions ensure webhook atomicity
+- **Privacy Protection:** Phone number masking and minimal data exposure
+- **Production Ready:** Docker containerization with health checks
+
+This demonstration showcases a production-grade messaging platform capable of handling enterprise-scale campaigns while maintaining strict compliance and privacy standards.
+
+---
 
 ## Project Structure
 
@@ -315,7 +675,7 @@ python -m pytest tests/runner/     # Campaign orchestration testing
 ### Docker Development
 ```bash
 # Full stack with hot-reload
-docker-compose -f docker-compose.dev.yml up
+docker compose -f docker compose.dev.yml up
 
 # Production build testing
 docker build -t event-stream-engine .
