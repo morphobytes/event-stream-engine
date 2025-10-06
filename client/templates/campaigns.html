@@ -18,8 +18,8 @@
             <select id="template_id" name="template_id" class="form-control" required>
                 <option value="">Select a template...</option>
                 {% for template in templates %}
-                <option value="{{ template.id }}">
-                    {{ template.name }} ({{ template.channel }})
+                <option value="{{ template.id }}" title="{{ template.content }}">
+                    {{ template.name }} - {{ template.content[:60] }}{% if template.content|length > 60 %}...{% endif %}
                 </option>
                 {% endfor %}
             </select>

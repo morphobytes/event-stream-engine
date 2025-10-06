@@ -113,11 +113,11 @@ def campaigns():
         from app.core.data_model import Campaign, Template
         
         with current_app.app_context():
-            # Get campaigns (mock for now since Campaign model might not be fully implemented)
-            campaigns_list = []
+            # Get campaigns from database
+            campaigns_list = Campaign.query.order_by(Campaign.created_at.desc()).all()
             
-            # Get templates (mock for now)
-            templates_list = []
+            # Get templates from database
+            templates_list = Template.query.order_by(Template.created_at.desc()).all()
 
         return render_template(
             "campaigns.html",
